@@ -1,0 +1,6961 @@
+# 算法参考手册 / Algorithm reference
+
+第一部分为各算法的**中文**说明，第二部分为**同一 `algorithm_id` 顺序**下的英文说明；仅出现中文的 id 不会在第二部分重复。
+
+Part I is Chinese text per algorithm id; Part II follows the **same id order** in English. Ids that only appear in Part I have no matching section in Part II.
+
+## 编排与版式
+
+各节含标题、原理、功能与举例、举例、用法（Python）等字段；有拓展时另起小节。字段正文放在围栏代码块内，以免内层 Markdown 标题与本书外层结构冲突。
+
+Sections include title, principle, function & examples, example, usage (Python), and optional extension. Body text is in fenced blocks so inner headings do not clash with this document.
+
+---
+
+## OpenCV（背景）
+
+[OpenCV](https://opencv.org/) 提供图像与视频的读写及常用 2D 视觉算子；与本手册中的算子说明、示例代码一并阅读即可对照实现。
+
+## OpenCV (context)
+
+[OpenCV](https://opencv.org/) covers image/video I/O and common 2D vision routines; use it alongside the sections and snippets below.
+
+---
+
+# 第一部分：中文（zh）
+
+各小节字段：标题、原理、功能与举例、举例、用法（Python）；有拓展列时附在末尾。
+
+### `img_original` — 原图
+
+#### 标题
+
+```
+原图
+```
+
+#### 原理
+
+```
+## 算法名称
+原图（内部标识 `img_original`）
+
+## 原理（教材级叙述）
+未处理的 BGR 图像，作为后续算子的输入。
+
+## 离散实现与数学扩展
+【离散实现通论】
+OpenCV 对大多数算子给出像素级离散实现；注意 dtype（uint8/float）、通道顺序（BGR）与 border 模式对结果边界的影响。
+
+【调试建议】
+对比输入/输出直方图与局部放大；对涉及梯度的算子优先用更高位深中间结果再压缩显示。
+
+## 与算法 id 关联的要点
+本算子对应 OpenCV 离散实现；一般形式可写为像素级映射 I'=F(I;θ)，θ 为参数向量。结合背面示例代码与官方文档理解数值稳定性与边界处理。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+作为对照，观察各算法相对原图的变化。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+输入照片，输出仍为像素矩阵。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+img = cv2.imread('a.jpg')
+cv2.imshow('src', img)
+cv2.waitKey(0)
+```
+
+---
+
+### `img_rotate` — 旋转
+
+#### 标题
+
+```
+旋转
+```
+
+#### 原理
+
+```
+## 算法名称
+旋转（内部标识 `img_rotate`）
+
+## 原理（教材级叙述）
+仿射变换：绕图像中心旋转 θ 角，可用 2×3 矩阵 M 与 warpAffine 实现。
+
+## 离散实现与数学扩展
+【几何变换】
+旋转/缩放属于仿射或相似变换子集；warpAffine 用双线性/双三次插值近似重采样，频域上相当于与 sinc 核近似卷积，故缩小再放大会损失高频。
+
+【仿射自由度】
+平面仿射 6 自由度，三对非共线对应点唯一确定矩阵；透视需单应性 8 自由度（本演示以仿射为主）。
+
+## 与算法 id 关联的要点
+仿射变换 x'=R x + t；旋转矩阵 R(θ)=[[cosθ,-sinθ],[sinθ,cosθ]]。双线性/双三次重采样对应不同插值核。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+修正方向或生成数据增强样本。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+将风景照旋转 15° 观察裁切与插值。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+(h,w)=img.shape[:2]
+M=cv2.getRotationMatrix2D((w/2,h/2),15,1)
+out=cv2.warpAffine(img,M,(w,h))
+```
+
+---
+
+### `img_scale` — 缩放
+
+#### 标题
+
+```
+缩放
+```
+
+#### 原理
+
+```
+## 算法名称
+缩放（内部标识 `img_scale`）
+
+## 原理（教材级叙述）
+重采样改变分辨率：最近邻、双线性、双三次等。
+
+## 离散实现与数学扩展
+【几何变换】
+旋转/缩放属于仿射或相似变换子集；warpAffine 用双线性/双三次插值近似重采样，频域上相当于与 sinc 核近似卷积，故缩小再放大会损失高频。
+
+【仿射自由度】
+平面仿射 6 自由度，三对非共线对应点唯一确定矩阵；透视需单应性 8 自由度（本演示以仿射为主）。
+
+## 与算法 id 关联的要点
+仿射变换 x'=R x + t；旋转矩阵 R(θ)=[[cosθ,-sinθ],[sinθ,cosθ]]。双线性/双三次重采样对应不同插值核。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+统一尺寸、金字塔多尺度分析。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+将图缩小到一半再放大，观察细节损失。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+out=cv2.resize(img,None,fx=0.5,fy=0.5,interpolation=cv2.INTER_LINEAR)
+```
+
+---
+
+### `img_flip_h` — 水平反转
+
+#### 标题
+
+```
+水平反转
+```
+
+#### 原理
+
+```
+## 算法名称
+水平反转（内部标识 `img_flip_h`）
+
+## 原理（教材级叙述）
+沿竖直中轴镜像，索引映射 i' = W-1-i。
+
+## 离散实现与数学扩展
+【几何变换】
+旋转/缩放属于仿射或相似变换子集；warpAffine 用双线性/双三次插值近似重采样，频域上相当于与 sinc 核近似卷积，故缩小再放大会损失高频。
+
+【仿射自由度】
+平面仿射 6 自由度，三对非共线对应点唯一确定矩阵；透视需单应性 8 自由度（本演示以仿射为主）。
+
+## 与算法 id 关联的要点
+本算子对应 OpenCV 离散实现；一般形式可写为像素级映射 I'=F(I;θ)，θ 为参数向量。结合背面示例代码与官方文档理解数值稳定性与边界处理。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+镜像数据、对称物体。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+人脸左右翻转。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+out=cv2.flip(img,1)
+```
+
+---
+
+### `img_flip_v` — 垂直反转
+
+#### 标题
+
+```
+垂直反转
+```
+
+#### 原理
+
+```
+## 算法名称
+垂直反转（内部标识 `img_flip_v`）
+
+## 原理（教材级叙述）
+沿水平中轴镜像。
+
+## 离散实现与数学扩展
+【几何变换】
+旋转/缩放属于仿射或相似变换子集；warpAffine 用双线性/双三次插值近似重采样，频域上相当于与 sinc 核近似卷积，故缩小再放大会损失高频。
+
+【仿射自由度】
+平面仿射 6 自由度，三对非共线对应点唯一确定矩阵；透视需单应性 8 自由度（本演示以仿射为主）。
+
+## 与算法 id 关联的要点
+本算子对应 OpenCV 离散实现；一般形式可写为像素级映射 I'=F(I;θ)，θ 为参数向量。结合背面示例代码与官方文档理解数值稳定性与边界处理。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+修正倒置图像。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+将图像上下颠倒。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+out=cv2.flip(img,0)
+```
+
+---
+
+### `img_add` — 加法
+
+#### 标题
+
+```
+加法
+```
+
+#### 原理
+
+```
+## 算法名称
+加法（内部标识 `img_add`）
+
+## 原理（教材级叙述）
+逐像素饱和加法 cv2.add，避免 uint8 环绕。
+
+## 离散实现与数学扩展
+【逐点映射】
+算术与阈值本质为 I'(x)=f(I(x),θ)。cv2.add/subtract 为饱和运算；乘法常在 float 域完成再 clip。阈值分割将连续灰度压到少数标签，是分割与 OCR 的前级。
+
+【自适应阈值】
+局部均值/高斯加权阈值可补偿光照渐变，块大小与常数 C 控制平滑与灵敏度。
+
+【色彩与掩码】
+HSV 柱坐标便于选色；inRange 生成单通道 mask，再 bitwise_and 保留 ROI。
+
+## 与算法 id 关联的要点
+逐点算术：注意 uint8 饱和运算与 float 截断区别；cv2.add/subtract 为饱和版本，乘法常先转 float 再 clip。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+提亮、与常数或第二幅图融合。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+为暗图加上常数偏置。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+out=cv2.add(img,50)
+```
+
+---
+
+### `img_sub` — 减法
+
+#### 标题
+
+```
+减法
+```
+
+#### 原理
+
+```
+## 算法名称
+减法（内部标识 `img_sub`）
+
+## 原理（教材级叙述）
+cv2.subtract 饱和减法。
+
+## 离散实现与数学扩展
+【逐点映射】
+算术与阈值本质为 I'(x)=f(I(x),θ)。cv2.add/subtract 为饱和运算；乘法常在 float 域完成再 clip。阈值分割将连续灰度压到少数标签，是分割与 OCR 的前级。
+
+【自适应阈值】
+局部均值/高斯加权阈值可补偿光照渐变，块大小与常数 C 控制平滑与灵敏度。
+
+【色彩与掩码】
+HSV 柱坐标便于选色；inRange 生成单通道 mask，再 bitwise_and 保留 ROI。
+
+## 与算法 id 关联的要点
+逐点算术：注意 uint8 饱和运算与 float 截断区别；cv2.add/subtract 为饱和版本，乘法常先转 float 再 clip。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+背景差分、对比变化。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+从图像减去常数变暗。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+out=cv2.subtract(img,40)
+```
+
+---
+
+### `img_mul` — 乘法
+
+#### 标题
+
+```
+乘法
+```
+
+#### 原理
+
+```
+## 算法名称
+乘法（内部标识 `img_mul`）
+
+## 原理（教材级叙述）
+缩放像素强度，注意裁剪到 [0,255]。
+
+## 离散实现与数学扩展
+【逐点映射】
+算术与阈值本质为 I'(x)=f(I(x),θ)。cv2.add/subtract 为饱和运算；乘法常在 float 域完成再 clip。阈值分割将连续灰度压到少数标签，是分割与 OCR 的前级。
+
+【自适应阈值】
+局部均值/高斯加权阈值可补偿光照渐变，块大小与常数 C 控制平滑与灵敏度。
+
+【色彩与掩码】
+HSV 柱坐标便于选色；inRange 生成单通道 mask，再 bitwise_and 保留 ROI。
+
+## 与算法 id 关联的要点
+逐点算术：注意 uint8 饱和运算与 float 截断区别；cv2.add/subtract 为饱和版本，乘法常先转 float 再 clip。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+对比度拉伸、增益。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+将浮点系数 1.2 乘到像素上再 clip。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+out=np.clip(img.astype(np.float32)*1.2,0,255).astype(np.uint8)
+```
+
+---
+
+### `img_threshold` — 二值化
+
+#### 标题
+
+```
+二值化
+```
+
+#### 原理
+
+```
+## 算法名称
+二值化（内部标识 `img_threshold`）
+
+## 原理（教材级叙述）
+固定阈值 T：大于 T 为前景，否则为背景。
+
+## 离散实现与数学扩展
+【逐点映射】
+算术与阈值本质为 I'(x)=f(I(x),θ)。cv2.add/subtract 为饱和运算；乘法常在 float 域完成再 clip。阈值分割将连续灰度压到少数标签，是分割与 OCR 的前级。
+
+【自适应阈值】
+局部均值/高斯加权阈值可补偿光照渐变，块大小与常数 C 控制平滑与灵敏度。
+
+【色彩与掩码】
+HSV 柱坐标便于选色；inRange 生成单通道 mask，再 bitwise_and 保留 ROI。
+
+## 与算法 id 关联的要点
+阈值分割将连续灰度映射到有限集合：I'(x)=255·𝟙[I(x)>T] 或分段常数；Otsu 通过最大化类间方差自动选 T。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+分割文字、简单物体。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+扫描文档二值化。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray=cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+_,th=cv2.threshold(gray,127,255,cv2.THRESH_BINARY)
+```
+
+---
+
+### `img_mask` — 掩码
+
+#### 标题
+
+```
+掩码
+```
+
+#### 原理
+
+```
+## 算法名称
+掩码（内部标识 `img_mask`）
+
+## 原理（教材级叙述）
+用单通道 mask 与按位与保留感兴趣区域。
+
+## 离散实现与数学扩展
+【逐点映射】
+算术与阈值本质为 I'(x)=f(I(x),θ)。cv2.add/subtract 为饱和运算；乘法常在 float 域完成再 clip。阈值分割将连续灰度压到少数标签，是分割与 OCR 的前级。
+
+【自适应阈值】
+局部均值/高斯加权阈值可补偿光照渐变，块大小与常数 C 控制平滑与灵敏度。
+
+【色彩与掩码】
+HSV 柱坐标便于选色；inRange 生成单通道 mask，再 bitwise_and 保留 ROI。
+
+## 与算法 id 关联的要点
+本算子对应 OpenCV 离散实现；一般形式可写为像素级映射 I'=F(I;θ)，θ 为参数向量。结合背面示例代码与官方文档理解数值稳定性与边界处理。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+抠图、区域统计。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+用阈值生成 mask 后只保留物体。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+mask=cv2.inRange(hsv,low,high)
+out=cv2.bitwise_and(img,img,mask=mask)
+```
+
+---
+
+### `img_ch_b` — 通道拆解(B)
+
+#### 标题
+
+```
+通道拆解(B)
+```
+
+#### 原理
+
+```
+## 算法名称
+通道拆解(B)（内部标识 `img_ch_b`）
+
+## 原理（教材级叙述）
+多通道矩阵按通道分离，可单独可视化 B。
+
+## 离散实现与数学扩展
+【逐点映射】
+算术与阈值本质为 I'(x)=f(I(x),θ)。cv2.add/subtract 为饱和运算；乘法常在 float 域完成再 clip。阈值分割将连续灰度压到少数标签，是分割与 OCR 的前级。
+
+【自适应阈值】
+局部均值/高斯加权阈值可补偿光照渐变，块大小与常数 C 控制平滑与灵敏度。
+
+【色彩与掩码】
+HSV 柱坐标便于选色；inRange 生成单通道 mask，再 bitwise_and 保留 ROI。
+
+## 与算法 id 关联的要点
+通道可视为 I=[I_B,I_G,I_R]；HSV 将色调 H、饱和度 S、明度 V 解耦，inRange 在柱状区域 H×S×V 上产生二值掩码。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+分析颜色分量、去雾预处理。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+只显示蓝色分量。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+b,g,r=cv2.split(img)
+zeros=np.zeros_like(b)
+vis=cv2.merge([b,zeros,zeros])
+```
+
+---
+
+### `img_ch_g` — 通道拆解(G)
+
+#### 标题
+
+```
+通道拆解(G)
+```
+
+#### 原理
+
+```
+## 算法名称
+通道拆解(G)（内部标识 `img_ch_g`）
+
+## 原理（教材级叙述）
+分离绿色通道。
+
+## 离散实现与数学扩展
+【逐点映射】
+算术与阈值本质为 I'(x)=f(I(x),θ)。cv2.add/subtract 为饱和运算；乘法常在 float 域完成再 clip。阈值分割将连续灰度压到少数标签，是分割与 OCR 的前级。
+
+【自适应阈值】
+局部均值/高斯加权阈值可补偿光照渐变，块大小与常数 C 控制平滑与灵敏度。
+
+【色彩与掩码】
+HSV 柱坐标便于选色；inRange 生成单通道 mask，再 bitwise_and 保留 ROI。
+
+## 与算法 id 关联的要点
+通道可视为 I=[I_B,I_G,I_R]；HSV 将色调 H、饱和度 S、明度 V 解耦，inRange 在柱状区域 H×S×V 上产生二值掩码。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+植被指数、亮度近似。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+只显示绿色分量。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+b,g,r=cv2.split(img)
+```
+
+---
+
+### `img_ch_merge` — 通道合并
+
+#### 标题
+
+```
+通道合并
+```
+
+#### 原理
+
+```
+## 算法名称
+通道合并（内部标识 `img_ch_merge`）
+
+## 原理（教材级叙述）
+cv2.merge 将单通道合成多通道。
+
+## 离散实现与数学扩展
+【逐点映射】
+算术与阈值本质为 I'(x)=f(I(x),θ)。cv2.add/subtract 为饱和运算；乘法常在 float 域完成再 clip。阈值分割将连续灰度压到少数标签，是分割与 OCR 的前级。
+
+【自适应阈值】
+局部均值/高斯加权阈值可补偿光照渐变，块大小与常数 C 控制平滑与灵敏度。
+
+【色彩与掩码】
+HSV 柱坐标便于选色；inRange 生成单通道 mask，再 bitwise_and 保留 ROI。
+
+## 与算法 id 关联的要点
+通道可视为 I=[I_B,I_G,I_R]；HSV 将色调 H、饱和度 S、明度 V 解耦，inRange 在柱状区域 H×S×V 上产生二值掩码。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+重组处理后的分量。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+合并 BGR 三幅灰度图。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+out=cv2.merge([b,g,r])
+```
+
+---
+
+### `img_hsv` — HSV 物体提取
+
+#### 标题
+
+```
+HSV 物体提取
+```
+
+#### 原理
+
+```
+## 算法名称
+HSV 物体提取（内部标识 `img_hsv`）
+
+## 原理（教材级叙述）
+HSV 色域对光照更稳定，inRange 得二值掩码。
+
+## 离散实现与数学扩展
+【逐点映射】
+算术与阈值本质为 I'(x)=f(I(x),θ)。cv2.add/subtract 为饱和运算；乘法常在 float 域完成再 clip。阈值分割将连续灰度压到少数标签，是分割与 OCR 的前级。
+
+【自适应阈值】
+局部均值/高斯加权阈值可补偿光照渐变，块大小与常数 C 控制平滑与灵敏度。
+
+【色彩与掩码】
+HSV 柱坐标便于选色；inRange 生成单通道 mask，再 bitwise_and 保留 ROI。
+
+## 与算法 id 关联的要点
+通道可视为 I=[I_B,I_G,I_R]；HSV 将色调 H、饱和度 S、明度 V 解耦，inRange 在柱状区域 H×S×V 上产生二值掩码。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+彩色目标分割。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+提取红色瓶盖区域。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+hsv=cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
+mask=cv2.inRange(hsv,low,high)
+```
+
+---
+
+### `img_affine` — 仿射变换
+
+#### 标题
+
+```
+仿射变换
+```
+
+#### 原理
+
+```
+## 算法名称
+仿射变换（内部标识 `img_affine`）
+
+## 原理（教材级叙述）
+仿射保持平行线：6 自由度，由三对点求 M。
+
+## 离散实现与数学扩展
+【几何变换】
+旋转/缩放属于仿射或相似变换子集；warpAffine 用双线性/双三次插值近似重采样，频域上相当于与 sinc 核近似卷积，故缩小再放大会损失高频。
+
+【仿射自由度】
+平面仿射 6 自由度，三对非共线对应点唯一确定矩阵；透视需单应性 8 自由度（本演示以仿射为主）。
+
+## 与算法 id 关联的要点
+仿射变换 x'=R x + t；旋转矩阵 R(θ)=[[cosθ,-sinθ],[sinθ,cosθ]]。双线性/双三次重采样对应不同插值核。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+校正透视近似、对齐。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+倾斜文本校正。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+M=cv2.getAffineTransform(pts1,pts2)
+out=cv2.warpAffine(img,M,(w,h))
+```
+
+---
+
+### `img_hist_gray` — 灰度直方图
+
+#### 标题
+
+```
+灰度直方图
+```
+
+#### 原理
+
+```
+## 算法名称
+灰度直方图（内部标识 `img_hist_gray`）
+
+## 原理（教材级叙述）
+统计灰度级频数 h(k)，归一化即概率。
+
+## 离散实现与数学扩展
+【离散直方图与分布】
+对灰度图，像素可视为独立样本，灰度级 k 的频数 h(k)=#{位置: I(x,y)=k}，归一化 p(k)=h(k)/N 近似经验分布。累积分布 C(k)=∑_{j≤k}p(j) 单调非减，是均衡化、直方图匹配与 compareHist 的基础。
+
+【与 OpenCV 的对应】
+calcHist 支持多通道、掩码与稀疏 bin；compareHist 的 HISTCMP_CORREL 等度量对应不同几何/统计假设。彩色直方图常分通道观察偏色；均衡化在 YCrCb 的 Y 通道操作可减少色相漂移。
+
+【实践注意】
+uint8 运算注意饱和与溢出；显示前可对 16 位结果做 convertScaleAbs；大分辨率下可先降采样再统计以加速探索。
+
+## 与算法 id 关联的要点
+离散灰度直方图 h(k)=#{像素位置 ω : I(ω)=k}，I 为灰度或分通道强度。归一化 p(k)=h(k)/N，N 为像素数，∑_k p(k)=1。累积分布 C(k)=∑_{j≤k}p(j) 用于均衡化与直方图匹配。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+分析曝光、双峰分割。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+欠曝图像直方图集中在暗端。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+hist=cv2.calcHist([gray],[0],None,[256],[0,256])
+```
+
+---
+
+### `img_hist_color` — 彩色直方图
+
+#### 标题
+
+```
+彩色直方图
+```
+
+#### 原理
+
+```
+## 算法名称
+彩色直方图（内部标识 `img_hist_color`）
+
+## 原理（教材级叙述）
+分通道统计 B/G/R 直方图。
+
+## 离散实现与数学扩展
+【离散直方图与分布】
+对灰度图，像素可视为独立样本，灰度级 k 的频数 h(k)=#{位置: I(x,y)=k}，归一化 p(k)=h(k)/N 近似经验分布。累积分布 C(k)=∑_{j≤k}p(j) 单调非减，是均衡化、直方图匹配与 compareHist 的基础。
+
+【与 OpenCV 的对应】
+calcHist 支持多通道、掩码与稀疏 bin；compareHist 的 HISTCMP_CORREL 等度量对应不同几何/统计假设。彩色直方图常分通道观察偏色；均衡化在 YCrCb 的 Y 通道操作可减少色相漂移。
+
+【实践注意】
+uint8 运算注意饱和与溢出；显示前可对 16 位结果做 convertScaleAbs；大分辨率下可先降采样再统计以加速探索。
+
+## 与算法 id 关联的要点
+对 B、G、R 各通道分别统计 h_B,h_G,h_R，其中 h_c(k)=∑_{x}𝟙[I_c(x)=k]。联合可视化可观察偏色：若某通道整体平移，对应直方图会相对其它通道偏移。归一化 p_c(k)=h_c(k)/N 满足 ∑_k p_c(k)=1。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+色彩平衡分析。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+对比原图与偏色图的三通道直方图。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+h=cv2.calcHist([img],[0],None,[256],[0,256])
+```
+
+---
+
+### `img_hist_eq` — 直方图均衡
+
+#### 标题
+
+```
+直方图均衡
+```
+
+#### 原理
+
+```
+## 算法名称
+直方图均衡（内部标识 `img_hist_eq`）
+
+## 原理（教材级叙述）
+灰度均衡使灰度分布更均匀；彩色常在 Y 通道做均衡。
+
+## 离散实现与数学扩展
+【离散直方图与分布】
+对灰度图，像素可视为独立样本，灰度级 k 的频数 h(k)=#{位置: I(x,y)=k}，归一化 p(k)=h(k)/N 近似经验分布。累积分布 C(k)=∑_{j≤k}p(j) 单调非减，是均衡化、直方图匹配与 compareHist 的基础。
+
+【与 OpenCV 的对应】
+calcHist 支持多通道、掩码与稀疏 bin；compareHist 的 HISTCMP_CORREL 等度量对应不同几何/统计假设。彩色直方图常分通道观察偏色；均衡化在 YCrCb 的 Y 通道操作可减少色相漂移。
+
+【实践注意】
+uint8 运算注意饱和与溢出；显示前可对 16 位结果做 convertScaleAbs；大分辨率下可先降采样再统计以加速探索。
+
+## 与算法 id 关联的要点
+灰度均衡映射 s(k)=(L−1)·∑_{j≤k} p(j)，L=256；彩色常在 Y 通道均衡以保持色度。逆映射为单调非减，故不引入虚假颜色边界（在 Y 上操作）。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+增强整体对比度。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+逆光人脸提亮。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+eq=cv2.equalizeHist(gray)
+```
+
+---
+
+### `img_hist_cmp` — 直方图比较
+
+#### 标题
+
+```
+直方图比较
+```
+
+#### 原理
+
+```
+## 算法名称
+直方图比较（内部标识 `img_hist_cmp`）
+
+## 原理（教材级叙述）
+cv2.compareHist 支持相关、卡方、巴氏距离等。
+
+## 离散实现与数学扩展
+【离散直方图与分布】
+对灰度图，像素可视为独立样本，灰度级 k 的频数 h(k)=#{位置: I(x,y)=k}，归一化 p(k)=h(k)/N 近似经验分布。累积分布 C(k)=∑_{j≤k}p(j) 单调非减，是均衡化、直方图匹配与 compareHist 的基础。
+
+【与 OpenCV 的对应】
+calcHist 支持多通道、掩码与稀疏 bin；compareHist 的 HISTCMP_CORREL 等度量对应不同几何/统计假设。彩色直方图常分通道观察偏色；均衡化在 YCrCb 的 Y 通道操作可减少色相漂移。
+
+【实践注意】
+uint8 运算注意饱和与溢出；显示前可对 16 位结果做 convertScaleAbs；大分辨率下可先降采样再统计以加速探索。
+
+## 与算法 id 关联的要点
+比较两分布 h₁,h₂：相关系数 d_corr=∑_k (h̃₁(k)−μ₁)(h̃₂(k)−μ₂)/(σ₁σ₂)（离散近似，OpenCV HISTCMP_CORREL）。也可用 χ²、Bhattacharyya 等度量；本演示对原图与均衡后灰度做相关。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+图像检索、变化检测。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+比较原图与均衡后直方图的相关性。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+d=cv2.compareHist(h1,h2,cv2.HISTCMP_CORREL)
+```
+
+---
+
+### `img_q_single` — 单阈值量化
+
+#### 标题
+
+```
+单阈值量化
+```
+
+#### 原理
+
+```
+## 算法名称
+单阈值量化（内部标识 `img_q_single`）
+
+## 原理（教材级叙述）
+单阈值将连续灰度映射到两档。
+
+## 离散实现与数学扩展
+【逐点映射】
+算术与阈值本质为 I'(x)=f(I(x),θ)。cv2.add/subtract 为饱和运算；乘法常在 float 域完成再 clip。阈值分割将连续灰度压到少数标签，是分割与 OCR 的前级。
+
+【自适应阈值】
+局部均值/高斯加权阈值可补偿光照渐变，块大小与常数 C 控制平滑与灵敏度。
+
+【色彩与掩码】
+HSV 柱坐标便于选色；inRange 生成单通道 mask，再 bitwise_and 保留 ROI。
+
+## 与算法 id 关联的要点
+阈值分割将连续灰度映射到有限集合：I'(x)=255·𝟙[I(x)>T] 或分段常数；Otsu 通过最大化类间方差自动选 T。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+二值分割。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+Otsu 可自动选阈值。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+_,th=cv2.threshold(gray,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+```
+
+---
+
+### `img_q_double` — 双阈值量化
+
+#### 标题
+
+```
+双阈值量化
+```
+
+#### 原理
+
+```
+## 算法名称
+双阈值量化（内部标识 `img_q_double`）
+
+## 原理（教材级叙述）
+两阈值形成三段或用于 Canny 滞后阈值思想。
+
+## 离散实现与数学扩展
+【逐点映射】
+算术与阈值本质为 I'(x)=f(I(x),θ)。cv2.add/subtract 为饱和运算；乘法常在 float 域完成再 clip。阈值分割将连续灰度压到少数标签，是分割与 OCR 的前级。
+
+【自适应阈值】
+局部均值/高斯加权阈值可补偿光照渐变，块大小与常数 C 控制平滑与灵敏度。
+
+【色彩与掩码】
+HSV 柱坐标便于选色；inRange 生成单通道 mask，再 bitwise_and 保留 ROI。
+
+## 与算法 id 关联的要点
+阈值分割将连续灰度映射到有限集合：I'(x)=255·𝟙[I(x)>T] 或分段常数；Otsu 通过最大化类间方差自动选 T。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+边缘连接、区域分层。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+高阈值保留强边缘，低阈值连接弱边缘。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+edges=cv2.Canny(gray,t1,t2)
+```
+
+---
+
+### `img_thresh_zero` — 置零阈值
+
+#### 标题
+
+```
+置零阈值
+```
+
+#### 原理
+
+```
+## 算法名称
+置零阈值（内部标识 `img_thresh_zero`）
+
+## 原理（教材级叙述）
+THRESH_TOZERO：低于阈值置 0，高于保留。
+
+## 离散实现与数学扩展
+【逐点映射】
+算术与阈值本质为 I'(x)=f(I(x),θ)。cv2.add/subtract 为饱和运算；乘法常在 float 域完成再 clip。阈值分割将连续灰度压到少数标签，是分割与 OCR 的前级。
+
+【自适应阈值】
+局部均值/高斯加权阈值可补偿光照渐变，块大小与常数 C 控制平滑与灵敏度。
+
+【色彩与掩码】
+HSV 柱坐标便于选色；inRange 生成单通道 mask，再 bitwise_and 保留 ROI。
+
+## 与算法 id 关联的要点
+THRESH_TOZERO：I'(x)=I(x)·𝟙[I(x)>T]，低于阈值的像素置 0，高于保持原值。与二值化不同，输出仍为灰度，适合抑制弱纹理而保留强边缘附近灰度。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+抑制弱响应。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+弱化阴影细节。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+_,th=cv2.threshold(gray,127,255,cv2.THRESH_TOZERO)
+```
+
+---
+
+### `img_adaptive` — 自适应阈值
+
+#### 标题
+
+```
+自适应阈值
+```
+
+#### 原理
+
+```
+## 算法名称
+自适应阈值（内部标识 `img_adaptive`）
+
+## 原理（教材级叙述）
+局部邻域统计阈值，适应光照不均。
+
+## 离散实现与数学扩展
+【逐点映射】
+算术与阈值本质为 I'(x)=f(I(x),θ)。cv2.add/subtract 为饱和运算；乘法常在 float 域完成再 clip。阈值分割将连续灰度压到少数标签，是分割与 OCR 的前级。
+
+【自适应阈值】
+局部均值/高斯加权阈值可补偿光照渐变，块大小与常数 C 控制平滑与灵敏度。
+
+【色彩与掩码】
+HSV 柱坐标便于选色；inRange 生成单通道 mask，再 bitwise_and 保留 ROI。
+
+## 与算法 id 关联的要点
+阈值分割将连续灰度映射到有限集合：I'(x)=255·𝟙[I(x)>T] 或分段常数；Otsu 通过最大化类间方差自动选 T。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+文档扫描、不均匀照明。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+光照不匀的纸张二值化。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+th=cv2.adaptiveThreshold(gray,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY,11,2)
+```
+
+---
+
+### `img_conv2d` — 二维卷积
+
+#### 标题
+
+```
+二维卷积
+```
+
+#### 原理
+
+```
+## 算法名称
+二维卷积（内部标识 `img_conv2d`）
+
+## 原理（教材级叙述）
+可分离卷积核加速；filter2D 实现线性滤波。
+
+## 离散实现与数学扩展
+【线性移不变系统】
+卷积 I'=I*h，h 为有限支撑核；可分离核 h=h_x⊗h_y 降低复杂度。高斯核等价频域低通；锐化常写作 I+α(I−G_σ*I)（反锐化）。
+
+【非线性滤镜】
+浮雕等属方向性高通+偏置；怀旧多为对角仿射或 LUT 色调映射。
+
+## 与算法 id 关联的要点
+线性滤波可写为卷积 I'(x)=∑_k I(x−k)·h(k)，离散实现即 filter2D。可分离核 h=h₁⊗h₂ 可降低复杂度。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+平滑、锐化、边缘响应。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+拉普拉斯核增强边缘。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+k=np.array([[-1,-1,-1],[-1,8,-1],[-1,-1,-1]])
+out=cv2.filter2D(gray,-1,k)
+```
+
+---
+
+### `morph_erode` — 腐蚀
+
+#### 标题
+
+```
+腐蚀
+```
+
+#### 原理
+
+```
+## 算法名称
+腐蚀（内部标识 `morph_erode`）
+
+## 原理（教材级叙述）
+结构元素范围内取最小值，缩小亮区域。
+
+## 离散实现与数学扩展
+【形态学代数】
+在二值或灰度图上，腐蚀 (I⊖B)(x)=min_{b∈B} I(x+b)，膨胀对偶为 max。开运算=腐蚀后膨胀，去小亮噪；闭运算=膨胀后腐蚀，填小孔。顶帽/黑帽刻画与邻域均值的亮/暗偏差。
+
+【结构元素】
+形状与尺寸决定各向异性：细长核检测特定方向结构；迭代次数等效于更大核但可分步调试。
+
+【边界与类型】
+注意 BORDER_DEFAULT / BORDER_REPLICATE 等对边界像素填充；灰度形态学与二值形态学在 max-min 意义上统一。
+
+## 与算法 id 关联的要点
+灰度/二值形态学在结构元素 B 上定义：腐蚀 (I⊖B)(x)=min_{b∈B} I(x+b)，膨胀 (I⊕B)(x)=max_{b∈B} I(x+b)。开闭、顶帽、黑帽均由腐蚀/膨胀复合得到。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+去噪点、分离物体。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+去除二值图像小白点噪声。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+er=cv2.erode(bin,kernel)
+```
+
+---
+
+### `morph_dilate` — 膨胀
+
+#### 标题
+
+```
+膨胀
+```
+
+#### 原理
+
+```
+## 算法名称
+膨胀（内部标识 `morph_dilate`）
+
+## 原理（教材级叙述）
+结构元素范围内取最大值，扩大亮区域。
+
+## 离散实现与数学扩展
+【形态学代数】
+在二值或灰度图上，腐蚀 (I⊖B)(x)=min_{b∈B} I(x+b)，膨胀对偶为 max。开运算=腐蚀后膨胀，去小亮噪；闭运算=膨胀后腐蚀，填小孔。顶帽/黑帽刻画与邻域均值的亮/暗偏差。
+
+【结构元素】
+形状与尺寸决定各向异性：细长核检测特定方向结构；迭代次数等效于更大核但可分步调试。
+
+【边界与类型】
+注意 BORDER_DEFAULT / BORDER_REPLICATE 等对边界像素填充；灰度形态学与二值形态学在 max-min 意义上统一。
+
+## 与算法 id 关联的要点
+灰度/二值形态学在结构元素 B 上定义：腐蚀 (I⊖B)(x)=min_{b∈B} I(x+b)，膨胀 (I⊕B)(x)=max_{b∈B} I(x+b)。开闭、顶帽、黑帽均由腐蚀/膨胀复合得到。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+填充孔洞、连接区域。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+加粗笔画。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+d=cv2.dilate(bin,kernel)
+```
+
+---
+
+### `morph_close` — 闭运算
+
+#### 标题
+
+```
+闭运算
+```
+
+#### 原理
+
+```
+## 算法名称
+闭运算（内部标识 `morph_close`）
+
+## 原理（教材级叙述）
+先膨胀后腐蚀：闭合小孔、连接邻近物体。
+
+## 离散实现与数学扩展
+【形态学代数】
+在二值或灰度图上，腐蚀 (I⊖B)(x)=min_{b∈B} I(x+b)，膨胀对偶为 max。开运算=腐蚀后膨胀，去小亮噪；闭运算=膨胀后腐蚀，填小孔。顶帽/黑帽刻画与邻域均值的亮/暗偏差。
+
+【结构元素】
+形状与尺寸决定各向异性：细长核检测特定方向结构；迭代次数等效于更大核但可分步调试。
+
+【边界与类型】
+注意 BORDER_DEFAULT / BORDER_REPLICATE 等对边界像素填充；灰度形态学与二值形态学在 max-min 意义上统一。
+
+## 与算法 id 关联的要点
+灰度/二值形态学在结构元素 B 上定义：腐蚀 (I⊖B)(x)=min_{b∈B} I(x+b)，膨胀 (I⊕B)(x)=max_{b∈B} I(x+b)。开闭、顶帽、黑帽均由腐蚀/膨胀复合得到。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+填充轮廓内缝隙。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+连接断裂的条形码竖线。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+out=cv2.morphologyEx(bin,cv2.MORPH_CLOSE,kernel)
+```
+
+---
+
+### `morph_open` — 开运算
+
+#### 标题
+
+```
+开运算
+```
+
+#### 原理
+
+```
+## 算法名称
+开运算（内部标识 `morph_open`）
+
+## 原理（教材级叙述）
+先腐蚀后膨胀：去小突起。
+
+## 离散实现与数学扩展
+【形态学代数】
+在二值或灰度图上，腐蚀 (I⊖B)(x)=min_{b∈B} I(x+b)，膨胀对偶为 max。开运算=腐蚀后膨胀，去小亮噪；闭运算=膨胀后腐蚀，填小孔。顶帽/黑帽刻画与邻域均值的亮/暗偏差。
+
+【结构元素】
+形状与尺寸决定各向异性：细长核检测特定方向结构；迭代次数等效于更大核但可分步调试。
+
+【边界与类型】
+注意 BORDER_DEFAULT / BORDER_REPLICATE 等对边界像素填充；灰度形态学与二值形态学在 max-min 意义上统一。
+
+## 与算法 id 关联的要点
+灰度/二值形态学在结构元素 B 上定义：腐蚀 (I⊖B)(x)=min_{b∈B} I(x+b)，膨胀 (I⊕B)(x)=max_{b∈B} I(x+b)。开闭、顶帽、黑帽均由腐蚀/膨胀复合得到。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+平滑轮廓、去毛刺。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+去除椒盐亮噪点。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+out=cv2.morphologyEx(bin,cv2.MORPH_OPEN,kernel)
+```
+
+---
+
+### `morph_grad` — 形态学梯度
+
+#### 标题
+
+```
+形态学梯度
+```
+
+#### 原理
+
+```
+## 算法名称
+形态学梯度（内部标识 `morph_grad`）
+
+## 原理（教材级叙述）
+膨胀图与腐蚀图之差，突出边界。
+
+## 离散实现与数学扩展
+【形态学代数】
+在二值或灰度图上，腐蚀 (I⊖B)(x)=min_{b∈B} I(x+b)，膨胀对偶为 max。开运算=腐蚀后膨胀，去小亮噪；闭运算=膨胀后腐蚀，填小孔。顶帽/黑帽刻画与邻域均值的亮/暗偏差。
+
+【结构元素】
+形状与尺寸决定各向异性：细长核检测特定方向结构；迭代次数等效于更大核但可分步调试。
+
+【边界与类型】
+注意 BORDER_DEFAULT / BORDER_REPLICATE 等对边界像素填充；灰度形态学与二值形态学在 max-min 意义上统一。
+
+## 与算法 id 关联的要点
+灰度/二值形态学在结构元素 B 上定义：腐蚀 (I⊖B)(x)=min_{b∈B} I(x+b)，膨胀 (I⊕B)(x)=max_{b∈B} I(x+b)。开闭、顶帽、黑帽均由腐蚀/膨胀复合得到。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+物体轮廓增强。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+二值细胞边缘。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+out=cv2.morphologyEx(bin,cv2.MORPH_GRADIENT,kernel)
+```
+
+---
+
+### `morph_tophat` — 顶帽
+
+#### 标题
+
+```
+顶帽
+```
+
+#### 原理
+
+```
+## 算法名称
+顶帽（内部标识 `morph_tophat`）
+
+## 原理（教材级叙述）
+原图减开运算，突出比邻域亮的小细节。
+
+## 离散实现与数学扩展
+【形态学代数】
+在二值或灰度图上，腐蚀 (I⊖B)(x)=min_{b∈B} I(x+b)，膨胀对偶为 max。开运算=腐蚀后膨胀，去小亮噪；闭运算=膨胀后腐蚀，填小孔。顶帽/黑帽刻画与邻域均值的亮/暗偏差。
+
+【结构元素】
+形状与尺寸决定各向异性：细长核检测特定方向结构；迭代次数等效于更大核但可分步调试。
+
+【边界与类型】
+注意 BORDER_DEFAULT / BORDER_REPLICATE 等对边界像素填充；灰度形态学与二值形态学在 max-min 意义上统一。
+
+## 与算法 id 关联的要点
+灰度/二值形态学在结构元素 B 上定义：腐蚀 (I⊖B)(x)=min_{b∈B} I(x+b)，膨胀 (I⊕B)(x)=max_{b∈B} I(x+b)。开闭、顶帽、黑帽均由腐蚀/膨胀复合得到。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+不均匀背景上的暗小目标检测。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+芯片表面微小亮点。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+out=cv2.morphologyEx(gray,cv2.MORPH_TOPHAT,kernel)
+```
+
+---
+
+### `morph_blackhat` — 黑帽
+
+#### 标题
+
+```
+黑帽
+```
+
+#### 原理
+
+```
+## 算法名称
+黑帽（内部标识 `morph_blackhat`）
+
+## 原理（教材级叙述）
+闭运算减原图，突出比邻域暗的结构。
+
+## 离散实现与数学扩展
+【形态学代数】
+在二值或灰度图上，腐蚀 (I⊖B)(x)=min_{b∈B} I(x+b)，膨胀对偶为 max。开运算=腐蚀后膨胀，去小亮噪；闭运算=膨胀后腐蚀，填小孔。顶帽/黑帽刻画与邻域均值的亮/暗偏差。
+
+【结构元素】
+形状与尺寸决定各向异性：细长核检测特定方向结构；迭代次数等效于更大核但可分步调试。
+
+【边界与类型】
+注意 BORDER_DEFAULT / BORDER_REPLICATE 等对边界像素填充；灰度形态学与二值形态学在 max-min 意义上统一。
+
+## 与算法 id 关联的要点
+灰度/二值形态学在结构元素 B 上定义：腐蚀 (I⊖B)(x)=min_{b∈B} I(x+b)，膨胀 (I⊕B)(x)=max_{b∈B} I(x+b)。开闭、顶帽、黑帽均由腐蚀/膨胀复合得到。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+暗细节、裂缝。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+道路裂缝增强。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+out=cv2.morphologyEx(gray,cv2.MORPH_BLACKHAT,kernel)
+```
+
+---
+
+### `edge_laplace` — 拉普拉斯边缘
+
+#### 标题
+
+```
+拉普拉斯边缘
+```
+
+#### 原理
+
+```
+【拉普拉斯算子精讲】
+拉普拉斯算子（Laplacian）是图像梯度中用于检测边缘的二阶微分算子。与 Sobel、Scharr 等一阶梯度算子不同，它不区分边缘方向，直接通过计算图像函数在两个正交方向上的二阶导数和来寻找灰度快速变化区域。
+
+数学定义：对 f(x,y)，∇²f = ∂²f/∂x² + ∂²f/∂y²。
+离散 3×3 常见模板：四邻域 [0,1,0; 1,-4,1; 0,1,0]；含对角 [1,1,1; 1,-8,1; 1,1,1]。
+OpenCV 的 cv2.Laplacian 用 Sobel 二阶导组合实现离散拉普拉斯，常用 CV_16S 防截断，再 convertScaleAbs 便于显示。
+
+主要特点：零交叉定位边缘；各向同性；对噪声极敏感（常先高斯平滑）；正负值对应亮暗过渡方向。
+
+## 算法名称
+拉普拉斯边缘（内部标识 `edge_laplace`）
+
+## 原理（教材级叙述）
+二阶导数零交叉检测边缘，对噪声敏感。
+
+## 离散实现与数学扩展
+【一阶与二阶梯度】
+一阶：∇I≈(G_x,G_y)，幅值 |∇I| 常用 L1 或 L2 范数近似；二阶：拉普拉斯 ∇²I 对噪声极敏感，零交叉可标边缘但需先平滑。
+
+【Canny 管线】
+高斯抑制高频噪声 → 梯度幅角 → 非极大抑制细化脊线 → 双阈值滞后连接：高阈值控假阳、低阈值连断裂。
+
+【离散实现】
+Sobel/Scharr 为固定可分离整数核；Laplacian 常用 CV_16S 防截断；显示前归一化。
+
+## 与算法 id 关联的要点
+一阶边缘：梯度 ∇I=(∂I/∂x,∂I/∂y)，常用 |∇I|≈|G_x|+|G_y| 或 √(G_x²+G_y²)。Canny：高斯平滑后求梯度，非极大抑制，双阈值滞后连接。Laplacian：二阶算子 ∇²I，零交叉对应边缘位置。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+锐化、边缘位置。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+简单几何形状轮廓。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+lap=cv2.Laplacian(gray,cv2.CV_16S,ksize=3)
+```
+
+---
+
+### `edge_canny` — Canny 边缘
+
+#### 标题
+
+```
+Canny 边缘
+```
+
+#### 原理
+
+```
+## 算法名称
+Canny 边缘（内部标识 `edge_canny`）
+
+## 原理（教材级叙述）
+高斯平滑、梯度幅角、双阈值滞后、非极大抑制。
+
+## 离散实现与数学扩展
+【一阶与二阶梯度】
+一阶：∇I≈(G_x,G_y)，幅值 |∇I| 常用 L1 或 L2 范数近似；二阶：拉普拉斯 ∇²I 对噪声极敏感，零交叉可标边缘但需先平滑。
+
+【Canny 管线】
+高斯抑制高频噪声 → 梯度幅角 → 非极大抑制细化脊线 → 双阈值滞后连接：高阈值控假阳、低阈值连断裂。
+
+【离散实现】
+Sobel/Scharr 为固定可分离整数核；Laplacian 常用 CV_16S 防截断；显示前归一化。
+
+## 与算法 id 关联的要点
+一阶边缘：梯度 ∇I=(∂I/∂x,∂I/∂y)，常用 |∇I|≈|G_x|+|G_y| 或 √(G_x²+G_y²)。Canny：高斯平滑后求梯度，非极大抑制，双阈值滞后连接。Laplacian：二阶算子 ∇²I，零交叉对应边缘位置。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+高质量单像素宽边缘。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+工业零件轮廓提取。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+e=cv2.Canny(gray,50,150)
+```
+
+---
+
+### `edge_sobel` — Sobel 边缘
+
+#### 标题
+
+```
+Sobel 边缘
+```
+
+#### 原理
+
+```
+## 算法名称
+Sobel 边缘（内部标识 `edge_sobel`）
+
+## 原理（教材级叙述）
+一阶差分近似偏导，Gx、Gy 合成幅值。
+
+## 离散实现与数学扩展
+【一阶与二阶梯度】
+一阶：∇I≈(G_x,G_y)，幅值 |∇I| 常用 L1 或 L2 范数近似；二阶：拉普拉斯 ∇²I 对噪声极敏感，零交叉可标边缘但需先平滑。
+
+【Canny 管线】
+高斯抑制高频噪声 → 梯度幅角 → 非极大抑制细化脊线 → 双阈值滞后连接：高阈值控假阳、低阈值连断裂。
+
+【离散实现】
+Sobel/Scharr 为固定可分离整数核；Laplacian 常用 CV_16S 防截断；显示前归一化。
+
+## 与算法 id 关联的要点
+一阶边缘：梯度 ∇I=(∂I/∂x,∂I/∂y)，常用 |∇I|≈|G_x|+|G_y| 或 √(G_x²+G_y²)。Canny：高斯平滑后求梯度，非极大抑制，双阈值滞后连接。Laplacian：二阶算子 ∇²I，零交叉对应边缘位置。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+快速梯度、方向性边缘。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+水平/垂直边缘分量可视化。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+gx=cv2.Sobel(gray,cv2.CV_16S,1,0,ksize=3)
+```
+
+---
+
+### `edge_scharr` — Scharr 边缘
+
+#### 标题
+
+```
+Scharr 边缘
+```
+
+#### 原理
+
+```
+## 算法名称
+Scharr 边缘（内部标识 `edge_scharr`）
+
+## 原理（教材级叙述）
+Sobel 的 3×3 更精确变体，核固定。
+
+## 离散实现与数学扩展
+【一阶与二阶梯度】
+一阶：∇I≈(G_x,G_y)，幅值 |∇I| 常用 L1 或 L2 范数近似；二阶：拉普拉斯 ∇²I 对噪声极敏感，零交叉可标边缘但需先平滑。
+
+【Canny 管线】
+高斯抑制高频噪声 → 梯度幅角 → 非极大抑制细化脊线 → 双阈值滞后连接：高阈值控假阳、低阈值连断裂。
+
+【离散实现】
+Sobel/Scharr 为固定可分离整数核；Laplacian 常用 CV_16S 防截断；显示前归一化。
+
+## 与算法 id 关联的要点
+一阶边缘：梯度 ∇I=(∂I/∂x,∂I/∂y)，常用 |∇I|≈|G_x|+|G_y| 或 √(G_x²+G_y²)。Canny：高斯平滑后求梯度，非极大抑制，双阈值滞后连接。Laplacian：二阶算子 ∇²I，零交叉对应边缘位置。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+比 Sobel(3) 更精确的梯度。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+小结构边缘。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gx=cv2.Scharr(gray,cv2.CV_16S,1,0)
+```
+
+---
+
+### `img_contours` — 轮廓检测
+
+#### 标题
+
+```
+轮廓检测
+```
+
+#### 原理
+
+```
+## 算法名称
+轮廓检测（内部标识 `img_contours`）
+
+## 原理（教材级叙述）
+findContours 从二值图提取边界链；可计算面积周长。
+
+## 离散实现与数学扩展
+【离散实现通论】
+OpenCV 对大多数算子给出像素级离散实现；注意 dtype（uint8/float）、通道顺序（BGR）与 border 模式对结果边界的影响。
+
+【调试建议】
+对比输入/输出直方图与局部放大；对涉及梯度的算子优先用更高位深中间结果再压缩显示。
+
+## 与算法 id 关联的要点
+轮廓可视为二值域 ∂Ω 的连通边界链；面积 A=∮_∂Ω x dy，周长可用链码近似。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+形状分析、物体计数。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+统计硬币个数。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+cnts,_=cv2.findContours(th,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
+```
+
+---
+
+### `img_stitch` — 图像拼接
+
+#### 标题
+
+```
+图像拼接
+```
+
+#### 原理
+
+```
+## 算法名称
+图像拼接（内部标识 `img_stitch`）
+
+## 原理（教材级叙述）
+特征匹配估计单应性，投影融合；Stitcher 高级 API。
+
+## 离散实现与数学扩展
+【几何变换】
+旋转/缩放属于仿射或相似变换子集；warpAffine 用双线性/双三次插值近似重采样，频域上相当于与 sinc 核近似卷积，故缩小再放大会损失高频。
+
+【仿射自由度】
+平面仿射 6 自由度，三对非共线对应点唯一确定矩阵；透视需单应性 8 自由度（本演示以仿射为主）。
+
+## 与算法 id 关联的要点
+拼接估计单应性 H 使 x'∼H x，再经投影与融合（多频段拉普拉斯等）减轻接缝。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+全景图、宽视野。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+两张相邻街景拼接。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+st=cv2.Stitcher_create()
+status,pano=st.stitch([a,b])
+```
+
+---
+
+### `filt_gray` — 灰度滤镜
+
+#### 标题
+
+```
+灰度滤镜
+```
+
+#### 原理
+
+```
+## 算法名称
+灰度滤镜（内部标识 `filt_gray`）
+
+## 原理（教材级叙述）
+Y = 0.299R+0.587G+0.114B 或 BT.601。
+
+## 离散实现与数学扩展
+【线性移不变系统】
+卷积 I'=I*h，h 为有限支撑核；可分离核 h=h_x⊗h_y 降低复杂度。高斯核等价频域低通；锐化常写作 I+α(I−G_σ*I)（反锐化）。
+
+【非线性滤镜】
+浮雕等属方向性高通+偏置；怀旧多为对角仿射或 LUT 色调映射。
+
+## 与算法 id 关联的要点
+线性滤波可写为卷积 I'(x)=∑_k I(x−k)·h(k)，离散实现即 filter2D。可分离核 h=h₁⊗h₂ 可降低复杂度。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+去色、为下游算法准备单通道。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+人像黑白风格。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+g=cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+```
+
+---
+
+### `filt_vintage` — 怀旧滤镜
+
+#### 标题
+
+```
+怀旧滤镜
+```
+
+#### 原理
+
+```
+## 算法名称
+怀旧滤镜（内部标识 `filt_vintage`）
+
+## 原理（教材级叙述）
+色温矩阵或查表，使高光偏黄、暗部偏青。
+
+## 离散实现与数学扩展
+【线性移不变系统】
+卷积 I'=I*h，h 为有限支撑核；可分离核 h=h_x⊗h_y 降低复杂度。高斯核等价频域低通；锐化常写作 I+α(I−G_σ*I)（反锐化）。
+
+【非线性滤镜】
+浮雕等属方向性高通+偏置；怀旧多为对角仿射或 LUT 色调映射。
+
+## 与算法 id 关联的要点
+线性滤波可写为卷积 I'(x)=∑_k I(x−k)·h(k)，离散实现即 filter2D。可分离核 h=h₁⊗h₂ 可降低复杂度。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+复古色调。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+老照片风格。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+# 常用 3x3 颜色矩阵乘每像素向量
+```
+
+---
+
+### `filt_emboss` — 浮雕滤镜
+
+#### 标题
+
+```
+浮雕滤镜
+```
+
+#### 原理
+
+```
+## 算法名称
+浮雕滤镜（内部标识 `filt_emboss`）
+
+## 原理（教材级叙述）
+方向性高通卷积 + 偏置产生阴影立体感。
+
+## 离散实现与数学扩展
+【线性移不变系统】
+卷积 I'=I*h，h 为有限支撑核；可分离核 h=h_x⊗h_y 降低复杂度。高斯核等价频域低通；锐化常写作 I+α(I−G_σ*I)（反锐化）。
+
+【非线性滤镜】
+浮雕等属方向性高通+偏置；怀旧多为对角仿射或 LUT 色调映射。
+
+## 与算法 id 关联的要点
+线性滤波可写为卷积 I'(x)=∑_k I(x−k)·h(k)，离散实现即 filter2D。可分离核 h=h₁⊗h₂ 可降低复杂度。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+艺术效果。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+金属浮雕商标。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+kernel=[[-2,-1,0],[-1,1,1],[0,1,2]]
+out=cv2.filter2D(gray,-1,kernel)+128
+```
+
+---
+
+### `filt_blur` — 模糊滤镜
+
+#### 标题
+
+```
+模糊滤镜
+```
+
+#### 原理
+
+```
+## 算法名称
+模糊滤镜（内部标识 `filt_blur`）
+
+## 原理（教材级叙述）
+高斯低通平滑，σ 控制频带。
+
+## 离散实现与数学扩展
+【线性移不变系统】
+卷积 I'=I*h，h 为有限支撑核；可分离核 h=h_x⊗h_y 降低复杂度。高斯核等价频域低通；锐化常写作 I+α(I−G_σ*I)（反锐化）。
+
+【非线性滤镜】
+浮雕等属方向性高通+偏置；怀旧多为对角仿射或 LUT 色调映射。
+
+## 与算法 id 关联的要点
+线性滤波可写为卷积 I'(x)=∑_k I(x−k)·h(k)，离散实现即 filter2D。可分离核 h=h₁⊗h₂ 可降低复杂度。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+降噪、景深模拟。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+人像皮肤柔化。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+out=cv2.GaussianBlur(img,(5,5),0)
+```
+
+---
+
+### `filt_sharpen` — 锐化滤镜
+
+#### 标题
+
+```
+锐化滤镜
+```
+
+#### 原理
+
+```
+## 算法名称
+锐化滤镜（内部标识 `filt_sharpen`）
+
+## 原理（教材级叙述）
+原图 + k*(原图-模糊) 或拉普拉斯锐化核。
+
+## 离散实现与数学扩展
+【线性移不变系统】
+卷积 I'=I*h，h 为有限支撑核；可分离核 h=h_x⊗h_y 降低复杂度。高斯核等价频域低通；锐化常写作 I+α(I−G_σ*I)（反锐化）。
+
+【非线性滤镜】
+浮雕等属方向性高通+偏置；怀旧多为对角仿射或 LUT 色调映射。
+
+## 与算法 id 关联的要点
+线性滤波可写为卷积 I'(x)=∑_k I(x−k)·h(k)，离散实现即 filter2D。可分离核 h=h₁⊗h₂ 可降低复杂度。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+增强边缘与纹理。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+模糊后补偿。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+k=np.array([[0,-1,0],[-1,5,-1],[0,-1,0]])
+out=cv2.filter2D(img,-1,k)
+```
+
+---
+
+### `vid_original` — 原始画面
+
+#### 标题
+
+```
+原始画面
+```
+
+#### 原理
+
+```
+## 算法名称
+原始画面（内部标识 `vid_original`）
+
+## 原理（教材级叙述）
+不做处理，直接显示采集到的 BGR 帧。
+
+## 离散实现与数学扩展
+【离散实现通论】
+OpenCV 对大多数算子给出像素级离散实现；注意 dtype（uint8/float）、通道顺序（BGR）与 border 模式对结果边界的影响。
+
+【调试建议】
+对比输入/输出直方图与局部放大；对涉及梯度的算子优先用更高位深中间结果再压缩显示。
+
+## 与算法 id 关联的要点
+本算子对应 OpenCV 离散实现；一般形式可写为像素级映射 I'=F(I;θ)，θ 为参数向量。结合背面示例代码与官方文档理解数值稳定性与边界处理。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+与其它算法子窗口对照，观察各算子相对原画面的变化。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+摄像头预览、确认曝光与白平衡。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+# 原帧即 cap.read() 返回的 frame
+out = frame.copy()
+```
+
+---
+
+### `vid_gray` — 视频转灰度
+
+#### 标题
+
+```
+视频转灰度
+```
+
+#### 原理
+
+```
+## 算法名称
+视频转灰度（内部标识 `vid_gray`）
+
+## 原理（教材级叙述）
+每帧 cvtColor BGR→GRAY。
+
+## 离散实现与数学扩展
+【离散实现通论】
+OpenCV 对大多数算子给出像素级离散实现；注意 dtype（uint8/float）、通道顺序（BGR）与 border 模式对结果边界的影响。
+
+【调试建议】
+对比输入/输出直方图与局部放大；对涉及梯度的算子优先用更高位深中间结果再压缩显示。
+
+## 与算法 id 关联的要点
+本算子对应 OpenCV 离散实现；一般形式可写为像素级映射 I'=F(I;θ)，θ 为参数向量。结合背面示例代码与官方文档理解数值稳定性与边界处理。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+降低算力、某些检测只需亮度。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+监控画面灰度显示。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+g=cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+```
+
+---
+
+### `vid_haar` — Haar 分类器
+
+#### 标题
+
+```
+Haar 分类器
+```
+
+#### 原理
+
+```
+## 算法名称
+Haar 分类器（内部标识 `vid_haar`）
+
+## 原理（教材级叙述）
+Viola-Jones：积分图加速 Haar 特征 + AdaBoost 级联。
+
+## 离散实现与数学扩展
+【离散实现通论】
+OpenCV 对大多数算子给出像素级离散实现；注意 dtype（uint8/float）、通道顺序（BGR）与 border 模式对结果边界的影响。
+
+【调试建议】
+对比输入/输出直方图与局部放大；对涉及梯度的算子优先用更高位深中间结果再压缩显示。
+
+## 与算法 id 关联的要点
+Viola–Jones：矩形 Haar 特征在积分图上 O(1) 计算，AdaBoost 级联快速拒绝非脸窗口。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+实时人脸/眼检测。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+摄像头人脸框。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+cascade=cv2.CascadeClassifier(xml)
+faces=cascade.detectMultiScale(gray,1.1,5)
+```
+
+---
+
+### `vid_hog` — HOG+SVM
+
+#### 标题
+
+```
+HOG+SVM
+```
+
+#### 原理
+
+```
+## 算法名称
+HOG+SVM（内部标识 `vid_hog`）
+
+## 原理（教材级叙述）
+梯度方向直方图描述子 + 线性 SVM。
+
+## 离散实现与数学扩展
+【离散实现通论】
+OpenCV 对大多数算子给出像素级离散实现；注意 dtype（uint8/float）、通道顺序（BGR）与 border 模式对结果边界的影响。
+
+【调试建议】
+对比输入/输出直方图与局部放大；对涉及梯度的算子优先用更高位深中间结果再压缩显示。
+
+## 与算法 id 关联的要点
+HOG：将图像分胞元，统计梯度方向加权直方图，块归一化后拼接成长描述子，线性 SVM 决策 f(w)=w^T φ(x)+b。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+行人检测经典管线。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+街景行人框。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+hog=cv2.HOGDescriptor()
+hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+```
+
+---
+
+### `vid_match_sqdiff` — 平方差匹配
+
+#### 标题
+
+```
+平方差匹配
+```
+
+#### 原理
+
+```
+## 算法名称
+平方差匹配（内部标识 `vid_match_sqdiff`）
+
+## 原理（教材级叙述）
+TM_SQDIFF：模板与窗口差方和，越小越相似。
+
+## 离散实现与数学扩展
+【模板与相似度】
+matchTemplate 在整幅图上滑动窗口，度量模板与窗口的相似度；SQDIFF 类越小越好，CCORR/CCOEFF 类越大越好，归一化形式减轻线性光照影响。
+
+【峰值解释】
+minMaxLoc 找极值位置；亚像素峰值可抛物线拟合（本演示未展开）。
+
+## 与算法 id 关联的要点
+模板匹配在位置 u 上计算 R(u)=Corr(T, I_{W}(u)) 或其差平方变体；归一化形式可减轻亮度线性漂移。OpenCV matchTemplate 在整幅图上滑动窗口。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+模板定位。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+在画面中找小图标位置。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+res=cv2.matchTemplate(img,tpl,cv2.TM_SQDIFF)
+```
+
+---
+
+### `vid_match_sqdiff_n` — 归一化平方差
+
+#### 标题
+
+```
+归一化平方差
+```
+
+#### 原理
+
+```
+## 算法名称
+归一化平方差（内部标识 `vid_match_sqdiff_n`）
+
+## 原理（教材级叙述）
+TM_SQDIFF_NORMED，光照变化更稳。
+
+## 离散实现与数学扩展
+【模板与相似度】
+matchTemplate 在整幅图上滑动窗口，度量模板与窗口的相似度；SQDIFF 类越小越好，CCORR/CCOEFF 类越大越好，归一化形式减轻线性光照影响。
+
+【峰值解释】
+minMaxLoc 找极值位置；亚像素峰值可抛物线拟合（本演示未展开）。
+
+## 与算法 id 关联的要点
+模板匹配在位置 u 上计算 R(u)=Corr(T, I_{W}(u)) 或其差平方变体；归一化形式可减轻亮度线性漂移。OpenCV matchTemplate 在整幅图上滑动窗口。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+相似度归一化比较。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+不同亮度下的模板匹配。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+res=cv2.matchTemplate(img,tpl,cv2.TM_SQDIFF_NORMED)
+```
+
+---
+
+### `vid_match_ccorr` — 相关匹配
+
+#### 标题
+
+```
+相关匹配
+```
+
+#### 原理
+
+```
+## 算法名称
+相关匹配（内部标识 `vid_match_ccorr`）
+
+## 原理（教材级叙述）
+TM_CCORR：互相关，越大越相似（受亮度影响）。
+
+## 离散实现与数学扩展
+【模板与相似度】
+matchTemplate 在整幅图上滑动窗口，度量模板与窗口的相似度；SQDIFF 类越小越好，CCORR/CCOEFF 类越大越好，归一化形式减轻线性光照影响。
+
+【峰值解释】
+minMaxLoc 找极值位置；亚像素峰值可抛物线拟合（本演示未展开）。
+
+## 与算法 id 关联的要点
+模板匹配在位置 u 上计算 R(u)=Corr(T, I_{W}(u)) 或其差平方变体；归一化形式可减轻亮度线性漂移。OpenCV matchTemplate 在整幅图上滑动窗口。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+简单纹理对齐。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+子图在大图中滑动搜索。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+res=cv2.matchTemplate(img,tpl,cv2.TM_CCORR)
+```
+
+---
+
+### `vid_match_ccorr_n` — 归一化相关
+
+#### 标题
+
+```
+归一化相关
+```
+
+#### 原理
+
+```
+## 算法名称
+归一化相关（内部标识 `vid_match_ccorr_n`）
+
+## 原理（教材级叙述）
+TM_CCORR_NORMED。
+
+## 离散实现与数学扩展
+【模板与相似度】
+matchTemplate 在整幅图上滑动窗口，度量模板与窗口的相似度；SQDIFF 类越小越好，CCORR/CCOEFF 类越大越好，归一化形式减轻线性光照影响。
+
+【峰值解释】
+minMaxLoc 找极值位置；亚像素峰值可抛物线拟合（本演示未展开）。
+
+## 与算法 id 关联的要点
+模板匹配在位置 u 上计算 R(u)=Corr(T, I_{W}(u)) 或其差平方变体；归一化形式可减轻亮度线性漂移。OpenCV matchTemplate 在整幅图上滑动窗口。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+减轻亮度影响的相关匹配。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+商标检测。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+res=cv2.matchTemplate(img,tpl,cv2.TM_CCORR_NORMED)
+```
+
+---
+
+### `vid_match_coeff` — 相关系数
+
+#### 标题
+
+```
+相关系数
+```
+
+#### 原理
+
+```
+## 算法名称
+相关系数（内部标识 `vid_match_coeff`）
+
+## 原理（教材级叙述）
+TM_CCOEFF：去均值相关。
+
+## 离散实现与数学扩展
+【模板与相似度】
+matchTemplate 在整幅图上滑动窗口，度量模板与窗口的相似度；SQDIFF 类越小越好，CCORR/CCOEFF 类越大越好，归一化形式减轻线性光照影响。
+
+【峰值解释】
+minMaxLoc 找极值位置；亚像素峰值可抛物线拟合（本演示未展开）。
+
+## 与算法 id 关联的要点
+模板匹配在位置 u 上计算 R(u)=Corr(T, I_{W}(u)) 或其差平方变体；归一化形式可减轻亮度线性漂移。OpenCV matchTemplate 在整幅图上滑动窗口。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+对线性光照变化更鲁棒。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+工业定位。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+res=cv2.matchTemplate(img,tpl,cv2.TM_CCOEFF)
+```
+
+---
+
+### `vid_match_coeff_n` — 归一化相关系数
+
+#### 标题
+
+```
+归一化相关系数
+```
+
+#### 原理
+
+```
+## 算法名称
+归一化相关系数（内部标识 `vid_match_coeff_n`）
+
+## 原理（教材级叙述）
+TM_CCOEFF_NORMED，最常用之一。
+
+## 离散实现与数学扩展
+【模板与相似度】
+matchTemplate 在整幅图上滑动窗口，度量模板与窗口的相似度；SQDIFF 类越小越好，CCORR/CCOEFF 类越大越好，归一化形式减轻线性光照影响。
+
+【峰值解释】
+minMaxLoc 找极值位置；亚像素峰值可抛物线拟合（本演示未展开）。
+
+## 与算法 id 关联的要点
+模板匹配在位置 u 上计算 R(u)=Corr(T, I_{W}(u)) 或其差平方变体；归一化形式可减轻亮度线性漂移。OpenCV matchTemplate 在整幅图上滑动窗口。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+模板匹配首选之一。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+UI 自动化找按钮。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+res=cv2.matchTemplate(img,tpl,cv2.TM_CCOEFF_NORMED)
+```
+
+---
+
+### `vid_motion` — 运动检测
+
+#### 标题
+
+```
+运动检测
+```
+
+#### 原理
+
+```
+## 算法名称
+运动检测（内部标识 `vid_motion`）
+
+## 原理（教材级叙述）
+帧间差分或背景减除，阈值化得运动掩码。
+
+## 离散实现与数学扩展
+【混合高斯背景】
+每像素观测用 K 个高斯混合建模，在线更新权重/方差/均值以刻画多峰背景（摇摆树叶、水面反光）。MOG2 改进阴影与自适应学习率。
+
+【前景掩码】
+apply 得到前景二值图，形态学后处理可抑噪；history 与 varThreshold 控制记忆长度与灵敏度。
+
+## 与算法 id 关联的要点
+帧差 |I_t−I_{t−1}| 或背景模型 B_t 更新后与当前帧差分，再阈值化得运动掩码。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+入侵检测、录像触发。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+摄像头前挥手触发区域变化。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+diff=cv2.absdiff(prev,gray)
+_,m=cv2.threshold(diff,25,255,cv2.THRESH_BINARY)
+```
+
+---
+
+### `vid_meanshift` — MeanShift 跟踪
+
+#### 标题
+
+```
+MeanShift 跟踪
+```
+
+#### 原理
+
+```
+## 算法名称
+MeanShift 跟踪（内部标识 `vid_meanshift`）
+
+## 原理（教材级叙述）
+在特征空间沿密度梯度上升迭代，收敛到模式。
+
+## 离散实现与数学扩展
+【密度估计与模式搜索】
+MeanShift 在特征空间沿核密度梯度迭代至局部极大；CamShift 在跟踪窗内更新二阶矩以估计尺度与朝向，适合缓慢形变目标。
+
+【颜色特征】
+反向投影把模板直方图变成概率图，再与均值漂移结合；HSV-H 通道对光照旋转更稳但离散化带来混叠。
+
+## 与算法 id 关联的要点
+MeanShift 在特征空间沿密度梯度上升：x_{t+1}=x_t+ m(x_t)，m 为均值漂移向量。CamShift 在 MeanShift 基础上自适应调整搜索窗尺度与朝向。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+彩色直方图目标跟踪。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+跟踪彩色球。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+_,win=cv2.meanShift(bp,win,term)
+```
+
+---
+
+### `vid_camshift` — CamShift 跟踪
+
+#### 标题
+
+```
+CamShift 跟踪
+```
+
+#### 原理
+
+```
+## 算法名称
+CamShift 跟踪（内部标识 `vid_camshift`）
+
+## 原理（教材级叙述）
+MeanShift + 对跟踪窗自适应调整尺度/朝向。
+
+## 离散实现与数学扩展
+【密度估计与模式搜索】
+MeanShift 在特征空间沿核密度梯度迭代至局部极大；CamShift 在跟踪窗内更新二阶矩以估计尺度与朝向，适合缓慢形变目标。
+
+【颜色特征】
+反向投影把模板直方图变成概率图，再与均值漂移结合；HSV-H 通道对光照旋转更稳但离散化带来混叠。
+
+## 与算法 id 关联的要点
+MeanShift 在特征空间沿密度梯度上升：x_{t+1}=x_t+ m(x_t)，m 为均值漂移向量。CamShift 在 MeanShift 基础上自适应调整搜索窗尺度与朝向。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+尺度变化目标。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+走近摄像头的人脸椭圆窗。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+ret,win=cv2.CamShift(bp,win,term)
+```
+
+---
+
+### `vid_mog` — MOG 背景建模
+
+#### 标题
+
+```
+MOG 背景建模
+```
+
+#### 原理
+
+```
+## 算法名称
+MOG 背景建模（内部标识 `vid_mog`）
+
+## 原理（教材级叙述）
+混合高斯每个像素多模态，适应缓慢变化背景。
+
+## 离散实现与数学扩展
+【混合高斯背景】
+每像素观测用 K 个高斯混合建模，在线更新权重/方差/均值以刻画多峰背景（摇摆树叶、水面反光）。MOG2 改进阴影与自适应学习率。
+
+【前景掩码】
+apply 得到前景二值图，形态学后处理可抑噪；history 与 varThreshold 控制记忆长度与灵敏度。
+
+## 与算法 id 关联的要点
+混合高斯背景：每个像素观测 x_t 由 K 个高斯混合建模，在线更新权重/方差以区分前景。MOG2 可显式建模阴影等改进项。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+室外监控前景提取。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+树叶摇动下的行人。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+mog=cv2.bgsegm.createBackgroundSubtractorMOG()
+fg=mog.apply(frame)
+```
+
+---
+
+### `vid_mog2` — MOG2 背景建模
+
+#### 标题
+
+```
+MOG2 背景建模
+```
+
+#### 原理
+
+```
+## 算法名称
+MOG2 背景建模（内部标识 `vid_mog2`）
+
+## 原理（教材级叙述）
+改进的 GMM，支持阴影检测等。
+
+## 离散实现与数学扩展
+【混合高斯背景】
+每像素观测用 K 个高斯混合建模，在线更新权重/方差/均值以刻画多峰背景（摇摆树叶、水面反光）。MOG2 改进阴影与自适应学习率。
+
+【前景掩码】
+apply 得到前景二值图，形态学后处理可抑噪；history 与 varThreshold 控制记忆长度与灵敏度。
+
+## 与算法 id 关联的要点
+混合高斯背景：每个像素观测 x_t 由 K 个高斯混合建模，在线更新权重/方差以区分前景。MOG2 可显式建模阴影等改进项。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+更稳定的前景分割。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+室内灯光渐变。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+m=cv2.createBackgroundSubtractorMOG2(500,16,True)
+fg=m.apply(frame)
+```
+
+---
+
+### `vid_yolo_det` — YOLO 目标检测
+
+#### 标题
+
+```
+YOLO 目标检测
+```
+
+#### 原理
+
+```
+## 算法名称
+YOLO 目标检测（内部标识 `vid_yolo_det`）
+
+## 原理（教材级叙述）
+Ultralytics YOLO：单阶段检测，支持官方 .pt 或 `yolo export` 得到的 ONNX/engine 等。
+
+## 离散实现与数学扩展
+【单阶段检测】
+YOLO 族将图像划网格并在多尺度预测框与类别；Ultralytics 封装训练、推理、导出 ONNX/TensorRT 等。
+
+【与本软件】
+检测视图绘制框；识别视图汇总类别名以区分「检测框」与「语义归纳」。
+
+## 与算法 id 关联的要点
+YOLO 类单阶段检测器将图像划分网格并在每个单元预测边界框与类别概率；损失通常含坐标回归、置信度与分类交叉熵。Ultralytics 封装了训练/推理与导出。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+多类别框检测与可视化。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+街景中同时检出车辆与行人。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+model = YOLO('yolo11n.pt')
+results = model.predict(frame)
+out = results[0].plot()
+```
+
+---
+
+### `vid_yolo_rec` — YOLO 目标识别
+
+#### 标题
+
+```
+YOLO 目标识别
+```
+
+#### 原理
+
+```
+## 算法名称
+YOLO 目标识别（内部标识 `vid_yolo_rec`）
+
+## 原理（教材级叙述）
+与检测同一 Ultralytics 模型；本软件在识别视图中突出显示当前帧类别名称汇总。
+
+## 离散实现与数学扩展
+【单阶段检测】
+YOLO 族将图像划网格并在多尺度预测框与类别；Ultralytics 封装训练、推理、导出 ONNX/TensorRT 等。
+
+【与本软件】
+检测视图绘制框；识别视图汇总类别名以区分「检测框」与「语义归纳」。
+
+## 与算法 id 关联的要点
+YOLO 类单阶段检测器将图像划分网格并在每个单元预测边界框与类别概率；损失通常含坐标回归、置信度与分类交叉熵。Ultralytics 封装了训练/推理与导出。
+```
+
+#### 功能与举例
+
+```
+## 算法功能
+从检测结果归纳类别标签，便于理解「识别」语义。
+
+## 工程串联
+可在流水线中与阈值、形态学、ROI、色彩空间转换等模块组合；注意分辨率、帧率与内存占用之间的折中。
+```
+
+#### 举例
+
+```
+## 举例（场景化）
+与检测相同模型路径，界面叠加「识别: 类别A、类别B」文案。
+```
+
+#### 用法（Python）
+
+```
+## 用法（OpenCV + Python）
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+model = YOLO('yolo11n.pt')
+results = model.predict(frame)
+# 从 results[0].boxes 读取 cls 与 names
+```
+
+---
+
+# 第二部分：英文（en）
+
+与第一部分相同的 `algorithm_id` 顺序与小节布局；第一部分未给出英文的 id 此处不出现。
+
+### `img_original` — Original
+
+#### Title
+
+```
+Original
+```
+
+#### Principle
+
+```
+## Algorithm name
+Original (`img_original`)
+
+## Principle
+Untreated BGR image; input for downstream operators.
+
+[Math & algorithm notes]
+This operator is the OpenCV discrete realization; think of pixel-wise maps I'=F(I;θ) and read the API docs for stability.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Baseline to compare every algorithm against the source.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Load a photo; output is still a pixel matrix.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+img = cv2.imread('a.jpg')
+cv2.imshow('src', img)
+cv2.waitKey(0)
+```
+
+---
+
+### `img_rotate` — Rotate
+
+#### Title
+
+```
+Rotate
+```
+
+#### Principle
+
+```
+## Algorithm name
+Rotate (`img_rotate`)
+
+## Principle
+Affine transform: rotate by θ around the center using a 2×3 matrix M and warpAffine.
+
+[Math & algorithm notes]
+Affine map x'=R x + t; rotation R(θ) is orthogonal with det=1. Interpolation picks resampling kernel.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Correct orientation or build augmented samples.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Rotate a landscape photo by 15° and observe crop and interpolation.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+(h,w)=img.shape[:2]
+M=cv2.getRotationMatrix2D((w/2,h/2),15,1)
+out=cv2.warpAffine(img,M,(w,h))
+```
+
+---
+
+### `img_scale` — Scale
+
+#### Title
+
+```
+Scale
+```
+
+#### Principle
+
+```
+## Algorithm name
+Scale (`img_scale`)
+
+## Principle
+Resampling changes resolution: nearest, bilinear, bicubic, etc.
+
+[Math & algorithm notes]
+Affine map x'=R x + t; rotation R(θ) is orthogonal with det=1. Interpolation picks resampling kernel.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Unify size; multi-scale pyramids.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Shrink to half then enlarge and observe detail loss.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+out=cv2.resize(img,None,fx=0.5,fy=0.5,interpolation=cv2.INTER_LINEAR)
+```
+
+---
+
+### `img_flip_h` — Flip horizontal
+
+#### Title
+
+```
+Flip horizontal
+```
+
+#### Principle
+
+```
+## Algorithm name
+Flip horizontal (`img_flip_h`)
+
+## Principle
+Mirror about the vertical mid-axis: index map i' = W-1-i.
+
+[Math & algorithm notes]
+This operator is the OpenCV discrete realization; think of pixel-wise maps I'=F(I;θ) and read the API docs for stability.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Mirror data; symmetric objects.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Flip a face left–right.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+out=cv2.flip(img,1)
+```
+
+---
+
+### `img_flip_v` — Flip vertical
+
+#### Title
+
+```
+Flip vertical
+```
+
+#### Principle
+
+```
+## Algorithm name
+Flip vertical (`img_flip_v`)
+
+## Principle
+Mirror about the horizontal mid-axis.
+
+[Math & algorithm notes]
+This operator is the OpenCV discrete realization; think of pixel-wise maps I'=F(I;θ) and read the API docs for stability.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Fix upside-down images.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Flip an image vertically.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+out=cv2.flip(img,0)
+```
+
+---
+
+### `img_add` — Add
+
+#### Title
+
+```
+Add
+```
+
+#### Principle
+
+```
+## Algorithm name
+Add (`img_add`)
+
+## Principle
+Saturated addition cv2.add avoids uint8 wrap-around.
+
+[Math & algorithm notes]
+Per-pixel arithmetic: mind uint8 saturation vs float clip workflows.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Brighten; blend with a constant or a second image.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Add a constant bias to a dark image.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+out=cv2.add(img,50)
+```
+
+---
+
+### `img_sub` — Subtract
+
+#### Title
+
+```
+Subtract
+```
+
+#### Principle
+
+```
+## Algorithm name
+Subtract (`img_sub`)
+
+## Principle
+Saturated subtraction cv2.subtract.
+
+[Math & algorithm notes]
+Per-pixel arithmetic: mind uint8 saturation vs float clip workflows.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Background differencing; highlight changes.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Subtract a constant to darken the image.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+out=cv2.subtract(img,40)
+```
+
+---
+
+### `img_mul` — Multiply
+
+#### Title
+
+```
+Multiply
+```
+
+#### Principle
+
+```
+## Algorithm name
+Multiply (`img_mul`)
+
+## Principle
+Scale pixel intensities; clip to [0,255].
+
+[Math & algorithm notes]
+Per-pixel arithmetic: mind uint8 saturation vs float clip workflows.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Contrast stretch; gain.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Multiply by 1.2 in float then clip to uint8.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+out=np.clip(img.astype(np.float32)*1.2,0,255).astype(np.uint8)
+```
+
+---
+
+### `img_threshold` — Binarize
+
+#### Title
+
+```
+Binarize
+```
+
+#### Principle
+
+```
+## Algorithm name
+Binarize (`img_threshold`)
+
+## Principle
+Fixed threshold T: above T foreground, else background.
+
+[Math & algorithm notes]
+Thresholding maps intensities to a finite set; Otsu maximizes between-class variance for automatic T.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Segment text or simple objects.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Binarize a scanned document.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray=cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+_,th=cv2.threshold(gray,127,255,cv2.THRESH_BINARY)
+```
+
+---
+
+### `img_mask` — Mask
+
+#### Title
+
+```
+Mask
+```
+
+#### Principle
+
+```
+## Algorithm name
+Mask (`img_mask`)
+
+## Principle
+Single-channel mask combined with bitwise AND to keep a region of interest.
+
+[Math & algorithm notes]
+This operator is the OpenCV discrete realization; think of pixel-wise maps I'=F(I;θ) and read the API docs for stability.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Cut-out; regional statistics.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Threshold to a mask then keep only the object.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+mask=cv2.inRange(hsv,low,high)
+out=cv2.bitwise_and(img,img,mask=mask)
+```
+
+---
+
+### `img_ch_b` — Channel B
+
+#### Title
+
+```
+Channel B
+```
+
+#### Principle
+
+```
+## Algorithm name
+Channel B (`img_ch_b`)
+
+## Principle
+Split multi-channel matrix; visualize B alone.
+
+[Math & algorithm notes]
+Channels I_B,I_G,I_R; HSV decouples hue/saturation/value—inRange defines a cylindrical ROI in HSV.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Analyze color channel; dehaze prep.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Show only the blue channel.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+b,g,r=cv2.split(img)
+zeros=np.zeros_like(b)
+vis=cv2.merge([b,zeros,zeros])
+```
+
+---
+
+### `img_ch_g` — Channel G
+
+#### Title
+
+```
+Channel G
+```
+
+#### Principle
+
+```
+## Algorithm name
+Channel G (`img_ch_g`)
+
+## Principle
+Split and isolate the green channel.
+
+[Math & algorithm notes]
+Channels I_B,I_G,I_R; HSV decouples hue/saturation/value—inRange defines a cylindrical ROI in HSV.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Vegetation indices; luminance proxy.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Show only the green channel.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+b,g,r=cv2.split(img)
+```
+
+---
+
+### `img_ch_merge` — Merge channels
+
+#### Title
+
+```
+Merge channels
+```
+
+#### Principle
+
+```
+## Algorithm name
+Merge channels (`img_ch_merge`)
+
+## Principle
+cv2.merge combines single channels into multi-channel.
+
+[Math & algorithm notes]
+Channels I_B,I_G,I_R; HSV decouples hue/saturation/value—inRange defines a cylindrical ROI in HSV.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Reassemble processed components.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Merge three BGR grayscale maps.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+out=cv2.merge([b,g,r])
+```
+
+---
+
+### `img_hsv` — HSV extraction
+
+#### Title
+
+```
+HSV extraction
+```
+
+#### Principle
+
+```
+## Algorithm name
+HSV extraction (`img_hsv`)
+
+## Principle
+HSV is more lighting-stable; inRange yields a binary mask.
+
+[Math & algorithm notes]
+Channels I_B,I_G,I_R; HSV decouples hue/saturation/value—inRange defines a cylindrical ROI in HSV.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Color object segmentation.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Extract a red bottle cap region.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+hsv=cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
+mask=cv2.inRange(hsv,low,high)
+```
+
+---
+
+### `img_affine` — Affine transform
+
+#### Title
+
+```
+Affine transform
+```
+
+#### Principle
+
+```
+## Algorithm name
+Affine transform (`img_affine`)
+
+## Principle
+Affine keeps parallel lines: 6 DOF from three point pairs to M.
+
+[Math & algorithm notes]
+Affine map x'=R x + t; rotation R(θ) is orthogonal with det=1. Interpolation picks resampling kernel.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Approximate perspective correction; alignment.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Deskew slanted text.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+M=cv2.getAffineTransform(pts1,pts2)
+out=cv2.warpAffine(img,M,(w,h))
+```
+
+---
+
+### `img_hist_gray` — Grayscale histogram
+
+#### Title
+
+```
+Grayscale histogram
+```
+
+#### Principle
+
+```
+## Algorithm name
+Grayscale histogram (`img_hist_gray`)
+
+## Principle
+Count gray levels h(k); normalize to probability.
+
+[Math & algorithm notes]
+Discrete histogram h(k) counts pixels with intensity k; p(k)=h(k)/N. CDF C(k)=∑_{j≤k}p(j) drives equalization / matching.
+
+## Math & implementation notes
+Histograms estimate empirical distributions; equalization uses monotone mapping of the CDF; compareHist implements several dissimilarity measures.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Analyze exposure; bimodal split.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Under-exposed histogram clusters at the dark end.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+hist=cv2.calcHist([gray],[0],None,[256],[0,256])
+```
+
+---
+
+### `img_hist_color` — Color histogram
+
+#### Title
+
+```
+Color histogram
+```
+
+#### Principle
+
+```
+## Algorithm name
+Color histogram (`img_hist_color`)
+
+## Principle
+Per-channel B/G/R histograms.
+
+[Math & algorithm notes]
+Per-channel histogram h_c(k)=∑_x 𝟙[I_c(x)=k]; normalized p_c(k)=h_c(k)/N, ∑_k p_c(k)=1. Compare B/G/R curves for color cast.
+
+## Math & implementation notes
+Histograms estimate empirical distributions; equalization uses monotone mapping of the CDF; compareHist implements several dissimilarity measures.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Color balance analysis.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Compare original vs color-cast histograms.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+h=cv2.calcHist([img],[0],None,[256],[0,256])
+```
+
+---
+
+### `img_hist_eq` — Histogram equalization
+
+#### Title
+
+```
+Histogram equalization
+```
+
+#### Principle
+
+```
+## Algorithm name
+Histogram equalization (`img_hist_eq`)
+
+## Principle
+Grayscale equalization spreads levels; color often equalizes the Y channel.
+
+[Math & algorithm notes]
+Equalization s(k)=(L−1)·∑_{j≤k} p(j) (monotone); on color, equalize Y in YCrCb to limit hue shift.
+
+## Math & implementation notes
+Histograms estimate empirical distributions; equalization uses monotone mapping of the CDF; compareHist implements several dissimilarity measures.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Boost global contrast.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Brighten a backlit face.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+eq=cv2.equalizeHist(gray)
+```
+
+---
+
+### `img_hist_cmp` — Histogram compare
+
+#### Title
+
+```
+Histogram compare
+```
+
+#### Principle
+
+```
+## Algorithm name
+Histogram compare (`img_hist_cmp`)
+
+## Principle
+cv2.compareHist: correlation, Chi-square, Bhattacharyya, etc.
+
+[Math & algorithm notes]
+Histogram distance: correlation maps to cosine similarity of mean-centered bins; OpenCV also offers Chi-square, Bhattacharyya, etc.
+
+## Math & implementation notes
+Histograms estimate empirical distributions; equalization uses monotone mapping of the CDF; compareHist implements several dissimilarity measures.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Retrieval; change detection.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Compare correlation of original vs equalized histograms.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+d=cv2.compareHist(h1,h2,cv2.HISTCMP_CORREL)
+```
+
+---
+
+### `img_q_single` — Single threshold
+
+#### Title
+
+```
+Single threshold
+```
+
+#### Principle
+
+```
+## Algorithm name
+Single threshold (`img_q_single`)
+
+## Principle
+Single threshold maps continuous gray to two levels.
+
+[Math & algorithm notes]
+Thresholding maps intensities to a finite set; Otsu maximizes between-class variance for automatic T.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Binary segmentation.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Otsu can pick T automatically.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+_,th=cv2.threshold(gray,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+```
+
+---
+
+### `img_q_double` — Double threshold
+
+#### Title
+
+```
+Double threshold
+```
+
+#### Principle
+
+```
+## Algorithm name
+Double threshold (`img_q_double`)
+
+## Principle
+Two thresholds form three bands or echo Canny hysteresis.
+
+[Math & algorithm notes]
+Thresholding maps intensities to a finite set; Otsu maximizes between-class variance for automatic T.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Edge linking; layered regions.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+High T keeps strong edges; low T connects weak ones.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+edges=cv2.Canny(gray,t1,t2)
+```
+
+---
+
+### `img_thresh_zero` — Threshold to zero
+
+#### Title
+
+```
+Threshold to zero
+```
+
+#### Principle
+
+```
+## Algorithm name
+Threshold to zero (`img_thresh_zero`)
+
+## Principle
+THRESH_TOZERO: below T set to 0; above keeps value.
+
+[Math & algorithm notes]
+THRESH_TOZERO: I'(x)=I(x)·𝟙[I(x)>T]; values below T become 0, above stay—grayscale output, not binary.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Suppress weak response.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Soften shadow detail.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+_,th=cv2.threshold(gray,127,255,cv2.THRESH_TOZERO)
+```
+
+---
+
+### `img_adaptive` — Adaptive threshold
+
+#### Title
+
+```
+Adaptive threshold
+```
+
+#### Principle
+
+```
+## Algorithm name
+Adaptive threshold (`img_adaptive`)
+
+## Principle
+Local neighborhood threshold; copes with uneven lighting.
+
+[Math & algorithm notes]
+Thresholding maps intensities to a finite set; Otsu maximizes between-class variance for automatic T.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Document scan; non-uniform illumination.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Binarize uneven paper lighting.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+th=cv2.adaptiveThreshold(gray,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY,11,2)
+```
+
+---
+
+### `img_conv2d` — 2D convolution
+
+#### Title
+
+```
+2D convolution
+```
+
+#### Principle
+
+```
+## Algorithm name
+2D convolution (`img_conv2d`)
+
+## Principle
+Separable kernels for speed; filter2D implements linear filtering.
+
+[Math & algorithm notes]
+Linear filtering I' = I * h with discrete convolution; separable kernels reduce cost.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Smoothing, sharpening, edge response.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Laplacian-like kernel to emphasize edges.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+k=np.array([[-1,-1,-1],[-1,8,-1],[-1,-1,-1]])
+out=cv2.filter2D(gray,-1,k)
+```
+
+---
+
+### `morph_erode` — Erode
+
+#### Title
+
+```
+Erode
+```
+
+#### Principle
+
+```
+## Algorithm name
+Erode (`morph_erode`)
+
+## Principle
+Structuring element: per-neighborhood minimum; shrinks bright regions.
+
+[Math & algorithm notes]
+Grayscale morphology with structuring element B: erosion (I⊖B)(x)=min_{b∈B} I(x+b), dilation dual with max. Opening/closing/top-hat/black-hat are compositions.
+
+## Math & implementation notes
+Mathematical morphology uses min/max filters with a structuring element; compositions yield open/close/top-hat/black-hat operators.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Remove speckles; separate blobs.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Remove small white noise on a binary image.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+er=cv2.erode(bin,kernel)
+```
+
+---
+
+### `morph_dilate` — Dilate
+
+#### Title
+
+```
+Dilate
+```
+
+#### Principle
+
+```
+## Algorithm name
+Dilate (`morph_dilate`)
+
+## Principle
+Per-neighborhood maximum; expands bright regions.
+
+[Math & algorithm notes]
+Grayscale morphology with structuring element B: erosion (I⊖B)(x)=min_{b∈B} I(x+b), dilation dual with max. Opening/closing/top-hat/black-hat are compositions.
+
+## Math & implementation notes
+Mathematical morphology uses min/max filters with a structuring element; compositions yield open/close/top-hat/black-hat operators.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Fill holes; connect regions.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Thicken strokes.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+d=cv2.dilate(bin,kernel)
+```
+
+---
+
+### `morph_close` — Close
+
+#### Title
+
+```
+Close
+```
+
+#### Principle
+
+```
+## Algorithm name
+Close (`morph_close`)
+
+## Principle
+Dilate then erode: closes small holes; connects nearby objects.
+
+[Math & algorithm notes]
+Grayscale morphology with structuring element B: erosion (I⊖B)(x)=min_{b∈B} I(x+b), dilation dual with max. Opening/closing/top-hat/black-hat are compositions.
+
+## Math & implementation notes
+Mathematical morphology uses min/max filters with a structuring element; compositions yield open/close/top-hat/black-hat operators.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Fill gaps inside contours.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Reconnect broken barcode vertical bars.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+out=cv2.morphologyEx(bin,cv2.MORPH_CLOSE,kernel)
+```
+
+---
+
+### `morph_open` — Open
+
+#### Title
+
+```
+Open
+```
+
+#### Principle
+
+```
+## Algorithm name
+Open (`morph_open`)
+
+## Principle
+Erode then dilate: removes small protrusions.
+
+[Math & algorithm notes]
+Grayscale morphology with structuring element B: erosion (I⊖B)(x)=min_{b∈B} I(x+b), dilation dual with max. Opening/closing/top-hat/black-hat are compositions.
+
+## Math & implementation notes
+Mathematical morphology uses min/max filters with a structuring element; compositions yield open/close/top-hat/black-hat operators.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Smooth contour; remove spurs.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Remove salt-and-pepper bright specks.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+out=cv2.morphologyEx(bin,cv2.MORPH_OPEN,kernel)
+```
+
+---
+
+### `morph_grad` — Morph gradient
+
+#### Title
+
+```
+Morph gradient
+```
+
+#### Principle
+
+```
+## Algorithm name
+Morph gradient (`morph_grad`)
+
+## Principle
+Dilated image minus eroded image highlights boundaries.
+
+[Math & algorithm notes]
+Grayscale morphology with structuring element B: erosion (I⊖B)(x)=min_{b∈B} I(x+b), dilation dual with max. Opening/closing/top-hat/black-hat are compositions.
+
+## Math & implementation notes
+Mathematical morphology uses min/max filters with a structuring element; compositions yield open/close/top-hat/black-hat operators.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Enhance object outlines.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Binary cell boundaries.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+out=cv2.morphologyEx(bin,cv2.MORPH_GRADIENT,kernel)
+```
+
+---
+
+### `morph_tophat` — Top-hat
+
+#### Title
+
+```
+Top-hat
+```
+
+#### Principle
+
+```
+## Algorithm name
+Top-hat (`morph_tophat`)
+
+## Principle
+Image minus opening highlights small details brighter than neighborhood.
+
+[Math & algorithm notes]
+Grayscale morphology with structuring element B: erosion (I⊖B)(x)=min_{b∈B} I(x+b), dilation dual with max. Opening/closing/top-hat/black-hat are compositions.
+
+## Math & implementation notes
+Mathematical morphology uses min/max filters with a structuring element; compositions yield open/close/top-hat/black-hat operators.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Dark small targets on uneven background.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Tiny bright spots on a chip surface.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+out=cv2.morphologyEx(gray,cv2.MORPH_TOPHAT,kernel)
+```
+
+---
+
+### `morph_blackhat` — Black-hat
+
+#### Title
+
+```
+Black-hat
+```
+
+#### Principle
+
+```
+## Algorithm name
+Black-hat (`morph_blackhat`)
+
+## Principle
+Closing minus image highlights structures darker than neighborhood.
+
+[Math & algorithm notes]
+Grayscale morphology with structuring element B: erosion (I⊖B)(x)=min_{b∈B} I(x+b), dilation dual with max. Opening/closing/top-hat/black-hat are compositions.
+
+## Math & implementation notes
+Mathematical morphology uses min/max filters with a structuring element; compositions yield open/close/top-hat/black-hat operators.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Dark details; cracks.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Enhance road cracks.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+out=cv2.morphologyEx(gray,cv2.MORPH_BLACKHAT,kernel)
+```
+
+---
+
+### `edge_laplace` — Laplacian edges
+
+#### Title
+
+```
+Laplacian edges
+```
+
+#### Principle
+
+```
+Laplacian deep dive: second-order ∇²f = ∂²f/∂x²+∂²f/∂y²; discrete 3×3 masks include 4-neighbour and 8-neighbour variants; OpenCV Laplacian uses Sobel-based second derivatives (often CV_16S + convertScaleAbs). Isotropic, zero-crossings at edges, very noise-sensitive—blur first.
+
+
+## Algorithm name
+Laplacian edges (`edge_laplace`)
+
+## Principle
+Second derivative zero-crossings; sensitive to noise.
+
+[Math & algorithm notes]
+First-order edges use ∇I; Canny chains Gaussian blur, gradient magnitude, NMS, hysteresis with T_low,T_high. Laplacian uses second-order ∇²I and zero-crossings.
+
+## Math & implementation notes
+First-order gradients approximate ∂I/∂x,∂I/∂y; Canny chains blur, gradient, NMS, hysteresis; Laplacian is second-order and noise-sensitive.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Sharpening; edge localization.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Simple geometric outlines.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+lap=cv2.Laplacian(gray,cv2.CV_16S,ksize=3)
+```
+
+---
+
+### `edge_canny` — Canny edges
+
+#### Title
+
+```
+Canny edges
+```
+
+#### Principle
+
+```
+## Algorithm name
+Canny edges (`edge_canny`)
+
+## Principle
+Gaussian blur, gradient magnitude/angle, double hysteresis, non-max suppression.
+
+[Math & algorithm notes]
+First-order edges use ∇I; Canny chains Gaussian blur, gradient magnitude, NMS, hysteresis with T_low,T_high. Laplacian uses second-order ∇²I and zero-crossings.
+
+## Math & implementation notes
+First-order gradients approximate ∂I/∂x,∂I/∂y; Canny chains blur, gradient, NMS, hysteresis; Laplacian is second-order and noise-sensitive.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+High-quality single-pixel-wide edges.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Industrial part contour extraction.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+e=cv2.Canny(gray,50,150)
+```
+
+---
+
+### `edge_sobel` — Sobel edges
+
+#### Title
+
+```
+Sobel edges
+```
+
+#### Principle
+
+```
+## Algorithm name
+Sobel edges (`edge_sobel`)
+
+## Principle
+First differences approximate partial derivatives; combine Gx, Gy magnitude.
+
+[Math & algorithm notes]
+First-order edges use ∇I; Canny chains Gaussian blur, gradient magnitude, NMS, hysteresis with T_low,T_high. Laplacian uses second-order ∇²I and zero-crossings.
+
+## Math & implementation notes
+First-order gradients approximate ∂I/∂x,∂I/∂y; Canny chains blur, gradient, NMS, hysteresis; Laplacian is second-order and noise-sensitive.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Fast gradient; directional edges.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Visualize horizontal vs vertical edge components.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+gx=cv2.Sobel(gray,cv2.CV_16S,1,0,ksize=3)
+```
+
+---
+
+### `edge_scharr` — Scharr edges
+
+#### Title
+
+```
+Scharr edges
+```
+
+#### Principle
+
+```
+## Algorithm name
+Scharr edges (`edge_scharr`)
+
+## Principle
+More accurate 3×3 variant than Sobel(3); fixed kernel.
+
+[Math & algorithm notes]
+First-order edges use ∇I; Canny chains Gaussian blur, gradient magnitude, NMS, hysteresis with T_low,T_high. Laplacian uses second-order ∇²I and zero-crossings.
+
+## Math & implementation notes
+First-order gradients approximate ∂I/∂x,∂I/∂y; Canny chains blur, gradient, NMS, hysteresis; Laplacian is second-order and noise-sensitive.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Finer gradient than 3×3 Sobel.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Small-structure edges.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+gx=cv2.Scharr(gray,cv2.CV_16S,1,0)
+```
+
+---
+
+### `img_contours` — Contours
+
+#### Title
+
+```
+Contours
+```
+
+#### Principle
+
+```
+## Algorithm name
+Contours (`img_contours`)
+
+## Principle
+findContours extracts boundary chains from binary maps; area and perimeter.
+
+[Math & algorithm notes]
+Contours are boundary chains of binary regions; Green's theorem links area to boundary integral.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Shape analysis; object counting.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Count coins.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+cnts,_=cv2.findContours(th,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
+```
+
+---
+
+### `img_stitch` — Stitch
+
+#### Title
+
+```
+Stitch
+```
+
+#### Principle
+
+```
+## Algorithm name
+Stitch (`img_stitch`)
+
+## Principle
+Feature matching estimates homography; blend projections; Stitcher high-level API.
+
+[Math & algorithm notes]
+Stitching estimates homography H (or camera poses) then warps and blends—multi-band blending reduces seams.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Panoramas; wide field of view.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Stitch two adjacent street views.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+st=cv2.Stitcher_create()
+status,pano=st.stitch([a,b])
+```
+
+---
+
+### `filt_gray` — Grayscale filter
+
+#### Title
+
+```
+Grayscale filter
+```
+
+#### Principle
+
+```
+## Algorithm name
+Grayscale filter (`filt_gray`)
+
+## Principle
+Y = 0.299R+0.587G+0.114B (BT.601 style weights).
+
+[Math & algorithm notes]
+Linear filtering I' = I * h with discrete convolution; separable kernels reduce cost.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Remove color; single channel for downstream.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Black-and-white portrait style.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+g=cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+```
+
+---
+
+### `filt_vintage` — Vintage filter
+
+#### Title
+
+```
+Vintage filter
+```
+
+#### Principle
+
+```
+## Algorithm name
+Vintage filter (`filt_vintage`)
+
+## Principle
+Color matrix or LUT: warm highlights, cool shadows.
+
+[Math & algorithm notes]
+Linear filtering I' = I * h with discrete convolution; separable kernels reduce cost.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Retro tone.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Old-photo look.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+# Often multiply each pixel by a 3×3 color matrix
+```
+
+---
+
+### `filt_emboss` — Emboss filter
+
+#### Title
+
+```
+Emboss filter
+```
+
+#### Principle
+
+```
+## Algorithm name
+Emboss filter (`filt_emboss`)
+
+## Principle
+Directional high-pass convolution + offset for embossed look.
+
+[Math & algorithm notes]
+Linear filtering I' = I * h with discrete convolution; separable kernels reduce cost.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Artistic effect.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Embossed metal logo.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+kernel=[[-2,-1,0],[-1,1,1],[0,1,2]]
+out=cv2.filter2D(gray,-1,kernel)+128
+```
+
+---
+
+### `filt_blur` — Blur filter
+
+#### Title
+
+```
+Blur filter
+```
+
+#### Principle
+
+```
+## Algorithm name
+Blur filter (`filt_blur`)
+
+## Principle
+Gaussian low-pass; σ controls bandwidth.
+
+[Math & algorithm notes]
+Linear filtering I' = I * h with discrete convolution; separable kernels reduce cost.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Denoise; fake depth of field.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Soften portrait skin.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+out=cv2.GaussianBlur(img,(5,5),0)
+```
+
+---
+
+### `filt_sharpen` — Sharpen filter
+
+#### Title
+
+```
+Sharpen filter
+```
+
+#### Principle
+
+```
+## Algorithm name
+Sharpen filter (`filt_sharpen`)
+
+## Principle
+Unsharp: image + k*(image − blur) or Laplacian sharpening kernel.
+
+[Math & algorithm notes]
+Linear filtering I' = I * h with discrete convolution; separable kernels reduce cost.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Boost edges and texture.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Compensate after blur.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+img = cv2.imread('input.png')
+if img is None:
+    raise SystemExit('请将 input.png 换为本地存在的图像路径')
+k=np.array([[0,-1,0],[-1,5,-1],[0,-1,0]])
+out=cv2.filter2D(img,-1,k)
+```
+
+---
+
+### `vid_original` — Original feed
+
+#### Title
+
+```
+Original feed
+```
+
+#### Principle
+
+```
+## Algorithm name
+Original feed (`vid_original`)
+
+## Principle
+No processing; show the captured BGR frame as-is.
+
+[Math & algorithm notes]
+This operator is the OpenCV discrete realization; think of pixel-wise maps I'=F(I;θ) and read the API docs for stability.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Compare every operator to the raw feed.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Webcam preview; check exposure and white balance.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+# Raw frame from cap.read()
+out = frame.copy()
+```
+
+---
+
+### `vid_gray` — Grayscale video
+
+#### Title
+
+```
+Grayscale video
+```
+
+#### Principle
+
+```
+## Algorithm name
+Grayscale video (`vid_gray`)
+
+## Principle
+Per-frame cvtColor BGR→GRAY.
+
+[Math & algorithm notes]
+This operator is the OpenCV discrete realization; think of pixel-wise maps I'=F(I;θ) and read the API docs for stability.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Save compute; some detectors need luminance only.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Grayscale surveillance display.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+g=cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+```
+
+---
+
+### `vid_haar` — Haar cascade
+
+#### Title
+
+```
+Haar cascade
+```
+
+#### Principle
+
+```
+## Algorithm name
+Haar cascade (`vid_haar`)
+
+## Principle
+Viola–Jones: integral image + Haar features + AdaBoost cascade.
+
+[Math & algorithm notes]
+Viola–Jones: integral image for fast rectangular Haar features; AdaBoost cascade rejects negatives early.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Real-time face/eye detection.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Draw face boxes on webcam.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+cascade=cv2.CascadeClassifier(xml)
+faces=cascade.detectMultiScale(gray,1.1,5)
+```
+
+---
+
+### `vid_hog` — HOG + SVM
+
+#### Title
+
+```
+HOG + SVM
+```
+
+#### Principle
+
+```
+## Algorithm name
+HOG + SVM (`vid_hog`)
+
+## Principle
+Histogram of oriented gradients + linear SVM.
+
+[Math & algorithm notes]
+HOG builds cell histograms of oriented gradients, block-normalizes, concatenates; linear SVM scores f=w^Tφ+b.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Classic pedestrian pipeline.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Pedestrian boxes in street scenes.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+hog=cv2.HOGDescriptor()
+hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
+```
+
+---
+
+### `vid_match_sqdiff` — SQDIFF match
+
+#### Title
+
+```
+SQDIFF match
+```
+
+#### Principle
+
+```
+## Algorithm name
+SQDIFF match (`vid_match_sqdiff`)
+
+## Principle
+TM_SQDIFF: sum of squared template–window differences; smaller is better.
+
+[Math & algorithm notes]
+Template matching scores R(u) over shifts u; normalized variants reduce linear illumination bias.
+
+## Math & implementation notes
+Normalized cross-correlation variants reduce linear illumination bias; pick TM_* method consistent with your score interpretation.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Template localization.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Find a small icon in a frame.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+res=cv2.matchTemplate(img,tpl,cv2.TM_SQDIFF)
+```
+
+---
+
+### `vid_match_sqdiff_n` — SQDIFF_N match
+
+#### Title
+
+```
+SQDIFF_N match
+```
+
+#### Principle
+
+```
+## Algorithm name
+SQDIFF_N match (`vid_match_sqdiff_n`)
+
+## Principle
+TM_SQDIFF_NORMED; more stable under lighting changes.
+
+[Math & algorithm notes]
+Template matching scores R(u) over shifts u; normalized variants reduce linear illumination bias.
+
+## Math & implementation notes
+Normalized cross-correlation variants reduce linear illumination bias; pick TM_* method consistent with your score interpretation.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Normalized similarity.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Template match under different brightness.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+res=cv2.matchTemplate(img,tpl,cv2.TM_SQDIFF_NORMED)
+```
+
+---
+
+### `vid_match_ccorr` — CCORR match
+
+#### Title
+
+```
+CCORR match
+```
+
+#### Principle
+
+```
+## Algorithm name
+CCORR match (`vid_match_ccorr`)
+
+## Principle
+TM_CCORR: cross-correlation; larger is more similar (brightness sensitive).
+
+[Math & algorithm notes]
+Template matching scores R(u) over shifts u; normalized variants reduce linear illumination bias.
+
+## Math & implementation notes
+Normalized cross-correlation variants reduce linear illumination bias; pick TM_* method consistent with your score interpretation.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Simple texture alignment.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Slide a subimage over a larger image.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+res=cv2.matchTemplate(img,tpl,cv2.TM_CCORR)
+```
+
+---
+
+### `vid_match_ccorr_n` — CCORR_N match
+
+#### Title
+
+```
+CCORR_N match
+```
+
+#### Principle
+
+```
+## Algorithm name
+CCORR_N match (`vid_match_ccorr_n`)
+
+## Principle
+TM_CCORR_NORMED.
+
+[Math & algorithm notes]
+Template matching scores R(u) over shifts u; normalized variants reduce linear illumination bias.
+
+## Math & implementation notes
+Normalized cross-correlation variants reduce linear illumination bias; pick TM_* method consistent with your score interpretation.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Correlation with less brightness bias.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Logo detection.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+res=cv2.matchTemplate(img,tpl,cv2.TM_CCORR_NORMED)
+```
+
+---
+
+### `vid_match_coeff` — CCOEFF match
+
+#### Title
+
+```
+CCOEFF match
+```
+
+#### Principle
+
+```
+## Algorithm name
+CCOEFF match (`vid_match_coeff`)
+
+## Principle
+TM_CCOEFF: correlation with means removed.
+
+[Math & algorithm notes]
+Template matching scores R(u) over shifts u; normalized variants reduce linear illumination bias.
+
+## Math & implementation notes
+Normalized cross-correlation variants reduce linear illumination bias; pick TM_* method consistent with your score interpretation.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+More robust to linear lighting shifts.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Industrial alignment.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+res=cv2.matchTemplate(img,tpl,cv2.TM_CCOEFF)
+```
+
+---
+
+### `vid_match_coeff_n` — CCOEFF_N match
+
+#### Title
+
+```
+CCOEFF_N match
+```
+
+#### Principle
+
+```
+## Algorithm name
+CCOEFF_N match (`vid_match_coeff_n`)
+
+## Principle
+TM_CCOEFF_NORMED; very common choice.
+
+[Math & algorithm notes]
+Template matching scores R(u) over shifts u; normalized variants reduce linear illumination bias.
+
+## Math & implementation notes
+Normalized cross-correlation variants reduce linear illumination bias; pick TM_* method consistent with your score interpretation.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Default template matching in many apps.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+UI automation: find a button.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+res=cv2.matchTemplate(img,tpl,cv2.TM_CCOEFF_NORMED)
+```
+
+---
+
+### `vid_motion` — Motion
+
+#### Title
+
+```
+Motion
+```
+
+#### Principle
+
+```
+## Algorithm name
+Motion (`vid_motion`)
+
+## Principle
+Frame differencing or background subtraction then threshold for motion mask.
+
+[Math & algorithm notes]
+Frame differencing |I_t−I_{t−1}| or background subtraction followed by thresholding yields motion masks.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Intrusion; trigger recording.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Hand wave changes a region in front of the camera.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+diff=cv2.absdiff(prev,gray)
+_,m=cv2.threshold(diff,25,255,cv2.THRESH_BINARY)
+```
+
+---
+
+### `vid_meanshift` — MeanShift
+
+#### Title
+
+```
+MeanShift
+```
+
+#### Principle
+
+```
+## Algorithm name
+MeanShift (`vid_meanshift`)
+
+## Principle
+Mean-shift iterations climb the density gradient in feature space to a mode.
+
+[Math & algorithm notes]
+Mean-shift climbs the density gradient in feature space; CamShift adapts window scale/orientation.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Color-histogram object tracking.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Track a colored ball.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+_,win=cv2.meanShift(bp,win,term)
+```
+
+---
+
+### `vid_camshift` — CamShift
+
+#### Title
+
+```
+CamShift
+```
+
+#### Principle
+
+```
+## Algorithm name
+CamShift (`vid_camshift`)
+
+## Principle
+Mean-shift plus adaptive window scale/orientation.
+
+[Math & algorithm notes]
+Mean-shift climbs the density gradient in feature space; CamShift adapts window scale/orientation.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Targets that change scale.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Face ellipse window as person approaches camera.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+ret,win=cv2.CamShift(bp,win,term)
+```
+
+---
+
+### `vid_mog` — MOG
+
+#### Title
+
+```
+MOG
+```
+
+#### Principle
+
+```
+## Algorithm name
+MOG (`vid_mog`)
+
+## Principle
+Mixture of Gaussians per pixel; multiple modes adapt to slow background change.
+
+[Math & algorithm notes]
+Gaussian mixture per pixel models background with K components; online updates separate foreground.
+
+## Math & implementation notes
+Gaussian mixture per pixel models multi-modal backgrounds; online updates separate foreground blobs.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Outdoor surveillance foreground.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Pedestrians with swaying trees.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+mog=cv2.bgsegm.createBackgroundSubtractorMOG()
+fg=mog.apply(frame)
+```
+
+---
+
+### `vid_mog2` — MOG2
+
+#### Title
+
+```
+MOG2
+```
+
+#### Principle
+
+```
+## Algorithm name
+MOG2 (`vid_mog2`)
+
+## Principle
+Improved GMM; optional shadow detection.
+
+[Math & algorithm notes]
+Gaussian mixture per pixel models background with K components; online updates separate foreground.
+
+## Math & implementation notes
+Gaussian mixture per pixel models multi-modal backgrounds; online updates separate foreground blobs.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+More stable foreground split.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Indoor lighting drift.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+m=cv2.createBackgroundSubtractorMOG2(500,16,True)
+fg=m.apply(frame)
+```
+
+---
+
+### `vid_yolo_det` — YOLO detect
+
+#### Title
+
+```
+YOLO detect
+```
+
+#### Principle
+
+```
+## Algorithm name
+YOLO detect (`vid_yolo_det`)
+
+## Principle
+Ultralytics YOLO: single-stage detection; official .pt or exported ONNX/engine.
+
+[Math & algorithm notes]
+YOLO-style detectors predict boxes and class logits on a grid; loss blends box regression, objectness, and classification.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Multi-class boxes and visualization.
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Cars and pedestrians in one street frame.
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+model = YOLO('yolo11n.pt')
+results = model.predict(frame)
+out = results[0].plot()
+```
+
+---
+
+### `vid_yolo_rec` — YOLO recognize
+
+#### Title
+
+```
+YOLO recognize
+```
+
+#### Principle
+
+```
+## Algorithm name
+YOLO recognize (`vid_yolo_rec`)
+
+## Principle
+Same Ultralytics model as detection; this app summarizes class names on the recognition view.
+
+[Math & algorithm notes]
+YOLO-style detectors predict boxes and class logits on a grid; loss blends box regression, objectness, and classification.
+
+## Math & implementation notes
+Discrete OpenCV operators act per-pixel or in local neighborhoods; mind BGR order, dtype (uint8 vs float), and border handling. For gradients, prefer intermediate CV_16S/CV_32F then convertScaleAbs for display.
+```
+
+#### Function & examples
+
+```
+## Function & pipeline notes
+Turn detections into a readable class list for "recognition".
+(Interpret operator behavior via its mathematical structure.)
+
+Combine with thresholding, morphology, or ROI masks as needed.
+```
+
+#### Example
+
+```
+## Example scenarios
+Same weights as detection; overlay text like "recognized: class A, class B".
+```
+
+#### Usage (Python)
+
+```
+## Usage (OpenCV + Python)
+import cv2
+import numpy as np
+cap = cv2.VideoCapture(0)  # 或改为 'clip.mp4'
+ok, frame = cap.read()
+if not ok:
+    raise SystemExit('无法读取视频帧')
+model = YOLO('yolo11n.pt')
+results = model.predict(frame)
+# Read cls and names from results[0].boxes
+```
